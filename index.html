@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Tibia Map Editor - GitHub Version</title>
+    <title>Tibia Map Editor - Restored Pro</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; color: white; }
         #viewport { width: 100vw; height: 100vh; cursor: grab; position: relative; }
@@ -23,53 +23,89 @@
         .grid-hidden .grid-overlay { display: none; }
 
         .map-base { width: 100%; height: 100%; position: absolute; z-index: 1; image-rendering: pixelated; pointer-events: none; }
+        .btn-central { position: absolute; z-index: 5; width: 80px; height: 80px; border-radius: 50%; border: 2px dashed #444; background: none; color: #444; font-size: 40px; cursor: pointer; }
         
-        .grid-livre { position: absolute; z-index: 50; image-rendering: pixelated; user-select: none; }
+        .grid-livre { position: absolute; z-index: 50; image-rendering: pixelated; user-select: none; cursor: move; border: 1px solid transparent; }
+        .grid-livre.is-locked { cursor: default; pointer-events: none; }
+        .editavel-box .grid-livre:hover:not(.is-locked) { border: 1px dashed yellow; }
+        
         .entidade-wrap { position: absolute; z-index: 60; }
         .entidade-img { width: 100%; height: 100%; display: block; image-rendering: pixelated; cursor: pointer; }
         
-        /* Filtros */
+        /* FILTROS DE VISIBILIDADE */
         .hide-npc .type-npc, .hide-item .type-item, .hide-mob .type-mob, .hide-balao .type-balao { display: none !important; }
 
-        /* Interface e Texto */
-        .interface-container { position: absolute; z-index: 200; display: none; pointer-events: auto; background: rgba(0,0,0,0.5); }
+        .controles-npc { position: absolute; top: -35px; left: 0; display: flex; gap: 4px; z-index: 110; background: rgba(0,0,0,0.7); padding: 3px; border-radius: 5px; }
+        .btn-npc { border: none; padding: 4px 6px; border-radius: 3px; cursor: pointer; font-weight: bold; font-size: 11px; color: #000; background: #eee; }
+        .b-ui { background: #00e1ff; }
+        .b-tx { background: #ff00ff; color: #fff; }
+        .b-sz { background: #fff; font-size: 14px; line-height: 10px; }
+        .b-del { background: #ff4444; color: #fff; }
+        .b-tag { background: #ffea00; color: #000; }
+        .b-lock { background: #ffd700; color: #000; }
+
+        #search-container { position: fixed; top: 15px; right: 15px; width: 250px; z-index: 2000; }
+        #map-search { width: 100%; padding: 10px; background: rgba(0,0,0,0.8); border: 1px solid #444; color: #fff; border-radius: 4px; outline: none; }
+        #search-results { background: rgba(20,20,20,0.95); border: 1px solid #444; border-top: none; max-height: 300px; overflow-y: auto; border-radius: 0 0 4px 4px; }
+        
+        #filter-box { margin-top: 10px; background: rgba(0,0,0,0.8); border: 1px solid #444; padding: 10px; border-radius: 4px; font-size: 12px; }
+        .filter-item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; cursor: pointer; }
+
+        .interface-container { position: absolute; z-index: 200; display: none; pointer-events: auto; }
         .interface-container.ativo { display: block; }
         .interface-img { width: 100%; height: 100%; display: block; image-rendering: pixelated; pointer-events: none; }
-        .ui-scroll-area { position: absolute; overflow: visible; }
-        .ui-texto { color: #fff; font-size: 14px; text-shadow: 1px 1px 0px #000; white-space: pre-wrap; width: 100%; height: 100%; }
 
-        /* Painéis */
+        .ui-top-bar { position: absolute; top: -35px; left: 0; width: 100%; display: none; background: rgba(0,0,0,0.95); border: 1px solid #444; padding: 5px; border-radius: 4px; z-index: 1000; align-items: center; justify-content: space-between; }
+        .editavel-box .ui-top-bar { display: flex; }
+        .color-dot { width: 18px; height: 18px; border-radius: 50%; cursor: pointer; border: 1px solid #fff; margin-right: 5px; }
+
+        .ui-scroll-area { position: absolute; overflow: visible; background: rgba(255,255,255,0.05); }
+        .editavel-box .ui-scroll-area { border: 1px dashed rgba(255,255,255,0.3); }
+        .controles-texto { position: absolute; top: -25px; left: 0; display: none; gap: 2px; background: rgba(0,0,0,0.8); padding: 2px; border-radius: 3px; z-index: 10; }
+        .editavel-box .controles-texto { display: flex; }
+        .handle-move-text { cursor: move; background: #555; color: white; padding: 2px 5px; font-size: 10px; border-radius: 2px; }
+
+        .ui-texto { color: #fff; font-size: 14px; text-shadow: 1px 1px 0px #000; white-space: pre-wrap; outline: none; width: 100%; height: 100%; }
+
         .panel { position: fixed; background: rgba(0,0,0,0.9); padding: 12px; border-radius: 8px; border: 1px solid #333; z-index: 1000; }
         .left { top: 15px; left: 15px; width: 220px; }
-        .right { top: 50%; right: 20px; transform: translateY(-50%); }
-        .btn-ui-main { width: 100%; padding: 8px; margin: 4px 0; cursor: pointer; background: #333; color: #fff; border: 1px solid #444; border-radius: 4px; }
-        
-        #search-container { position: fixed; top: 15px; right: 15px; width: 250px; z-index: 2000; }
-        #map-search { width: 100%; padding: 10px; background: rgba(0,0,0,0.8); border: 1px solid #444; color: #fff; }
+        .right { top: 50%; right: 20px; transform: translateY(-50%); text-align: center; }
+        .btn-ui-main { width: 100%; padding: 8px; margin: 4px 0; cursor: pointer; background: #333; color: #fff; border: 1px solid #444; border-radius: 4px; font-size: 12px; }
     </style>
 </head>
 <body>
 
     <div id="search-container">
-        <input type="text" id="map-search" placeholder="🔍 Buscar Tag..." oninput="buscarTags()">
-        <div id="filter-box" class="panel" style="position: relative; margin-top: 10px; width: auto;">
-            <strong>Filtros</strong><br>
-            <label><input type="checkbox" checked onchange="toggleVisibility('npc', this.checked)"> NPCs</label><br>
-            <label><input type="checkbox" checked onchange="toggleVisibility('mob', this.checked)"> Monstros</label>
+        <input type="text" id="map-search" placeholder="🔍 Buscar Tag ou Nome..." oninput="buscarTags()">
+        <div id="search-results"></div>
+        <div id="filter-box">
+            <strong>Visualização</strong><br><br>
+            <label class="filter-item"><input type="checkbox" checked onchange="toggleVisibility('npc', this.checked)"> NPCs</label>
+            <label class="filter-item"><input type="checkbox" checked onchange="toggleVisibility('item', this.checked)"> Itens</label>
+            <label class="filter-item"><input type="checkbox" checked onchange="toggleVisibility('mob', this.checked)"> Monstros</label>
+            <label class="filter-item"><input type="checkbox" checked onchange="toggleVisibility('balao', this.checked)"> Balões</label>
         </div>
     </div>
 
     <div class="panel left">
-        <strong>Tibia Editor Pro</strong><br>
-        <div id="status" style="color: #0f0; font-size: 11px;">Carregando do repositório...</div>
-        <hr>
+        <strong>Tibia Editor Pro</strong><br><br>
+        <button class="btn-ui-main" id="btnHandle" style="background:#0f0; color:#000;">1. Conectar Pasta</button>
+        <button class="btn-ui-main" onclick="adicionarGridLivre()">2. + Correção</button>
+        <button class="btn-ui-main" onclick="adicionarEntidade('npc')" style="background:#ffcc00; color:#000;">+ NPC</button>
+        <button class="btn-ui-main" onclick="adicionarEntidade('item')" style="background:#00e1ff; color:#000;">+ Item</button>
+        <button class="btn-ui-main" onclick="adicionarEntidade('mob')" style="background:#ff4444; color:#fff;">+ Monstro</button>
+        <button class="btn-ui-main" onclick="adicionarEntidade('balao')" style="background:#ff00ff; color:#fff;">+ Balão</button>
+        <hr style="border:0; border-top:1px solid #333; margin:10px 0;">
         <button class="btn-ui-main" onclick="toggleGrid()">Grade: ON/OFF</button>
-        <button class="btn-ui-main" onclick="toggleEditMode()">Modo Edição: ON/OFF</button>
+        <button class="btn-ui-main" onclick="toggleGridColor()" id="btnGridColor" style="color: #0f0;">Cor do Grid: Original</button>
+        <button class="btn-ui-main" onclick="toggleEditMode()">Montagem (+): ON/OFF</button>
+        <div id="status" style="font-size:11px; color: #888;">Offline</div>
     </div>
 
     <div class="panel right">
+        <small>Z-AXIS</small><br>
         <button class="btn-ui-main" onclick="changeLayer(-1)">▲</button>
-        <div style="font-size:24px; color:#0f0; text-align:center;" id="layerDisplay">7</div>
+        <div style="font-size:24px; color:#0f0;" id="layerDisplay">7</div>
         <button class="btn-ui-main" onclick="changeLayer(1)">▼</button>
     </div>
 
@@ -79,142 +115,302 @@
         const world = document.getElementById('world');
         const viewport = document.getElementById('viewport');
         const TILE_W = 1078, TILE_H = 790;
-        let scale = 0.15, posX = window.innerWidth/2, posY = window.innerHeight/2;
-        let currentZ = 7, isGridVisible = true, isEditMode = false;
+        let directoryHandle = null, scale = 0.15, posX = window.innerWidth/2, posY = window.innerHeight/2;
+        let currentZ = 7, isGridVisible = true, isEditMode = true, gridColorMode = 0;
         let mapData = { correcoes: [], entidades: [] };
         const slotsCriados = new Set();
+        let activeTextEl = null;
 
-        // INICIALIZAÇÃO AUTOMÁTICA
-        async function init() {
-            try {
-                const response = await fetch('map_data.json');
-                if (response.ok) {
-                    mapData = await response.json();
-                    document.getElementById('status').innerText = "Status: Online (GitHub)";
-                }
-            } catch (e) {
-                console.error("map_data.json não encontrado. Iniciando vazio.");
-                document.getElementById('status').innerText = "Status: Modo Local/Vazio";
-            }
-            reloadMap();
+        // --- SISTEMA DE ARQUIVOS E SALVAMENTO ---
+        async function salvarDados() {
+            if(!directoryHandle) return;
+            const fh = await directoryHandle.getFileHandle('map_data.json', {create:true});
+            const w = await fh.createWritable(); await w.write(JSON.stringify(mapData)); await w.close();
         }
 
-        function reloadMap() {
-            slotsCriados.clear();
-            world.innerHTML = '';
-            atualizarGradeInfinita();
-            update();
+        async function carregarDados() {
+            try { 
+                const fh = await directoryHandle.getFileHandle('map_data.json'); 
+                mapData = JSON.parse(await (await fh.getFile()).text()); 
+            } catch(e) { mapData = { correcoes: [], entidades: [] }; }
         }
 
-        function atualizarGradeInfinita() {
-            const cX = Math.round(((-posX + window.innerWidth/2)/scale)/TILE_W);
-            const cY = Math.round(((-posY + window.innerHeight/2)/scale)/TILE_H);
-            for(let x = cX - 2; x <= cX + 2; x++) 
-                for(let y = cY - 2; y <= cY + 2; y++) criarSlot(x, y);
+        // --- UTILITÁRIOS ---
+        function getImageDimensions(file) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve({ w: img.width, h: img.height });
+                img.src = URL.createObjectURL(file);
+            });
         }
 
-        function criarSlot(x, y) {
-            const id = `${x}_${y}_${currentZ}`;
-            if (slotsCriados.has(id)) return;
-            slotsCriados.add(id);
+        function toggleVisibility(tipo, isVisible) { world.classList.toggle('hide-' + tipo, !isVisible); }
 
-            const div = document.createElement('div');
-            div.className = 'slot';
-            div.style.left = `${x * TILE_W}px`;
-            div.style.top = `${y * TILE_H}px`;
-            
-            // Grid
-            div.innerHTML = `<div class="grid-overlay">${'<div></div>'.repeat(165)}</div>`;
-            
-            // Imagem de Fundo (Mapa)
-            const imgBase = document.createElement('img');
-            imgBase.className = 'map-base';
-            imgBase.src = `${id}.png`;
-            imgBase.onerror = () => imgBase.style.display = 'none';
-            imgBase.onload = () => imgBase.style.display = 'block';
-            div.appendChild(imgBase);
-
-            world.appendChild(div);
-            renderizarObjetosDoSlot(id, div);
-        }
-
-        function renderizarObjetosDoSlot(slotId, slotElement) {
-            // Renderizar NPCs/Monstros/Itens
-            mapData.entidades.filter(e => e.slotId === slotId && e.z === currentZ).forEach(data => {
-                const wrap = document.createElement('div');
-                wrap.className = `entidade-wrap type-${data.tipo}`;
-                wrap.style.cssText = `left:${data.x}px; top:${data.y}px; width:${data.w}px; height:${data.h}px;`;
-
-                const img = document.createElement('img');
-                img.src = data.arquivo; // Caminho direto no GitHub
-                img.className = 'entidade-img';
-                img.onclick = () => {
-                    const uis = wrap.querySelectorAll('.interface-container');
-                    uis.forEach(ui => ui.classList.toggle('ativo'));
+        function buscarTags() {
+            const termo = document.getElementById('map-search').value.toLowerCase();
+            const resDiv = document.getElementById('search-results');
+            resDiv.innerHTML = '';
+            if(!termo) return;
+            const lista = [...mapData.entidades, ...mapData.correcoes].filter(obj => obj.tag && obj.tag.toLowerCase().includes(termo));
+            lista.forEach(obj => {
+                const div = document.createElement('div');
+                div.style.padding = '8px'; div.style.cursor = 'pointer'; div.style.borderBottom = '1px solid #333';
+                div.innerText = `[Z${obj.z}] ${obj.tag}`;
+                div.onclick = () => {
+                    currentZ = obj.z; document.getElementById('layerDisplay').innerText = currentZ;
+                    const [sx, sy] = obj.slotId.split('_').map(Number);
+                    const rX = (sx * TILE_W) + obj.x; const rY = (sy * TILE_H) + obj.y;
+                    posX = (window.innerWidth/2) - (rX * scale); posY = (window.innerHeight/2) - (rY * scale);
+                    reloadMap();
                 };
+                resDiv.appendChild(div);
+            });
+        }
 
-                wrap.appendChild(img);
+        // --- RENDERIZAÇÃO DE UI E TEXTOS ---
+        function renderizarInterface(parent, entData, uiData, uiIndex) {
+            const container = document.createElement('div');
+            container.className = 'interface-container';
+            if (isEditMode) container.classList.add('editavel-box');
+            container.style.cssText = `left:${uiData.x}px; top:${uiData.y}px; width:${uiData.w}px; height:${uiData.h}px;`;
 
-                // Renderizar Interfaces associadas
-                if(data.interfaces) {
-                    data.interfaces.forEach(ui => {
-                        const uiDiv = document.createElement('div');
-                        uiDiv.className = 'interface-container';
-                        uiDiv.style.cssText = `left:${ui.x}px; top:${ui.y}px; width:${ui.w}px; height:${ui.h}px;`;
-                        
-                        const uiImg = document.createElement('img');
-                        uiImg.src = ui.arquivo;
-                        uiImg.className = 'interface-img';
-                        uiDiv.appendChild(uiImg);
+            const topBar = document.createElement('div');
+            topBar.className = 'ui-top-bar';
+            
+            const btnDel = document.createElement('button');
+            btnDel.className = 'btn-npc b-del'; btnDel.innerText = 'DEL';
+            btnDel.onclick = () => { if(confirm("Remover UI?")) { entData.interfaces.splice(uiIndex,1); salvarDados(); reloadMap(); }};
 
-                        // Textos dentro da Interface
-                        if(ui.texts) {
-                            ui.texts.forEach(txt => {
-                                const area = document.createElement('div');
-                                area.className = 'ui-scroll-area';
-                                area.style.cssText = `left:${txt.x}px; top:${txt.y}px; width:${txt.w}px; height:${txt.h}px;`;
-                                
-                                const span = document.createElement('div');
-                                span.className = 'ui-texto';
-                                span.innerHTML = txt.content;
-                                area.appendChild(span);
-                                uiDiv.appendChild(area);
-                            });
-                        }
-                        wrap.appendChild(uiDiv);
-                    });
+            const colors = document.createElement('div');
+            colors.style.display = 'flex';
+            ['#fff', '#00ebff', '#ff0', '#f00', '#0f0'].forEach(cor => {
+                const dot = document.createElement('div');
+                dot.className = 'color-dot'; dot.style.background = cor;
+                dot.onmousedown = (e) => { e.preventDefault(); if(activeTextEl) document.execCommand('foreColor', false, cor); };
+                colors.appendChild(dot);
+            });
+
+            topBar.append(colors, btnDel);
+            container.appendChild(topBar);
+
+            const img = document.createElement('img');
+            img.className = 'interface-img';
+            directoryHandle.getFileHandle(uiData.arquivo).then(h => h.getFile()).then(f => { img.src = URL.createObjectURL(f); });
+            container.appendChild(img);
+
+            if(uiData.texts) {
+                uiData.texts.forEach((t) => {
+                    const area = document.createElement('div');
+                    area.className = 'ui-scroll-area';
+                    area.style.cssText = `left:${t.x}px; top:${t.y}px; width:${t.w}px; height:${t.h}px;`;
+                    
+                    const ctrl = document.createElement('div');
+                    ctrl.className = 'controles-texto';
+                    const move = document.createElement('div'); move.className='handle-move-text'; move.innerText='✛';
+                    ctrl.appendChild(move);
+                    area.appendChild(ctrl);
+
+                    const txt = document.createElement('div');
+                    txt.className = 'ui-texto'; txt.innerHTML = t.content; txt.contentEditable = isEditMode;
+                    txt.onfocus = () => { activeTextEl = txt; };
+                    txt.onblur = () => { t.content = txt.innerHTML; salvarDados(); };
+                    
+                    if(isEditMode) {
+                        move.onmousedown = (e) => {
+                            e.stopPropagation(); let sx=e.clientX, sy=e.clientY, ox=t.x, oy=t.y;
+                            document.onmousemove=(m)=>{ t.x=ox+(m.clientX-sx)/scale; t.y=oy+(m.clientY-sy)/scale; area.style.left=t.x+"px"; area.style.top=t.y+"px"; };
+                            document.onmouseup=()=>{ document.onmousemove=null; salvarDados(); };
+                        };
+                    }
+                    area.appendChild(txt); container.appendChild(area);
+                });
+            }
+
+            if(isEditMode) {
+                container.onmousedown = (e) => {
+                    if(e.target.closest('.ui-scroll-area') || e.target.closest('.ui-top-bar')) return;
+                    e.stopPropagation(); let sx=e.clientX, sy=e.clientY, ox=uiData.x, oy=uiData.y;
+                    document.onmousemove=(m)=>{ uiData.x=ox+(m.clientX-sx)/scale; uiData.y=oy+(m.clientY-sy)/scale; container.style.left=uiData.x+"px"; container.style.top=uiData.y+"px"; };
+                    document.onmouseup=()=>{ document.onmousemove=null; salvarDados(); };
+                };
+            }
+            parent.appendChild(container);
+        }
+
+        // --- CORE DO EDITOR ---
+        async function carregarConteudoSlot(slotId, slotElement) {
+            // Renderizar Correções
+            mapData.correcoes.filter(c => c.slotId === slotId && c.z === currentZ).forEach(async data => {
+                const img = document.createElement('img');
+                const f = await (await directoryHandle.getFileHandle(data.arquivo)).getFile();
+                img.src = URL.createObjectURL(f); 
+                img.className = 'grid-livre' + (data.locked ? ' is-locked' : '');
+                img.style.cssText = `left:${data.x}px; top:${data.y}px; width:${data.w}px; height:${data.h}px;`;
+                
+                if(isEditMode) {
+                    const cnt = document.createElement('div'); cnt.className = 'controles-npc';
+                    const bLock = document.createElement('button'); bLock.className='btn-npc b-lock'; bLock.innerText=data.locked?"🔒":"🔓";
+                    bLock.onclick=()=>{ data.locked=!data.locked; salvarDados(); reloadMap(); };
+                    const bTag = document.createElement('button'); bTag.className='btn-npc b-tag'; bTag.innerText='TAG';
+                    bTag.onclick=()=>{ const n=prompt("Tag:", data.tag||""); if(n!==null){data.tag=n; salvarDados();}};
+                    const bDel = document.createElement('button'); bDel.className='btn-npc b-del'; bDel.innerText='X';
+                    bDel.onclick=()=>{ if(confirm("Deletar?")){mapData.correcoes=mapData.correcoes.filter(c=>c.id!==data.id); salvarDados(); reloadMap();}};
+                    
+                    cnt.append(bLock, bTag, bDel);
+                    cnt.style.left = data.x + "px"; cnt.style.top = (data.y - 35) + "px";
+                    slotElement.appendChild(cnt);
+
+                    img.onmousedown = (e) => {
+                        if(data.locked) return;
+                        e.stopPropagation(); let sx=e.clientX, sy=e.clientY, ox=data.x, oy=data.y;
+                        document.onmousemove=(m)=>{ 
+                            data.x=ox+(m.clientX-sx)/scale; data.y=oy+(m.clientY-sy)/scale; 
+                            img.style.left=data.x+"px"; img.style.top=data.y+"px"; 
+                            cnt.style.left=data.x+"px"; cnt.style.top=(data.y-35)+"px"; 
+                        };
+                        document.onmouseup=()=>{ document.onmousemove=null; salvarDados(); };
+                    };
                 }
+                slotElement.appendChild(img);
+            });
+
+            // Renderizar Entidades (NPCs, Mobs, etc)
+            mapData.entidades.filter(e => e.slotId === slotId && e.z === currentZ).forEach(async data => {
+                const wrap = document.createElement('div'); 
+                wrap.className = `entidade-wrap type-${data.tipo || 'npc'}`;
+                wrap.style.cssText = `left:${data.x}px; top:${data.y}px; width:${data.w}px; height:${data.h}px;`;
+                
+                const img = document.createElement('img');
+                const f = await (await directoryHandle.getFileHandle(data.arquivo)).getFile();
+                img.src = URL.createObjectURL(f); img.className = 'entidade-img';
+                
+                if(isEditMode) {
+                    const cnt = document.createElement('div'); cnt.className = 'controles-npc';
+                    const bUI = document.createElement('button'); bUI.className='btn-npc b-ui'; bUI.innerText="UI+";
+                    bUI.onclick=()=>adicionarInterface(data.id);
+                    const bTX = document.createElement('button'); bTX.className='btn-npc b-tx'; bTX.innerText="T+";
+                    bTX.onclick=()=>{ if(data.interfaces.length) adicionarTextoUI(data.interfaces[0]); else alert("Crie UI!"); };
+                    const bDel = document.createElement('button'); bDel.className='btn-npc b-del'; bDel.innerText="DEL";
+                    bDel.onclick=()=>{ if(confirm("Deletar?")){mapData.entidades=mapData.entidades.filter(en=>en.id!==data.id); salvarDados(); reloadMap();}};
+                    
+                    cnt.append(bUI, bTX, bDel);
+                    wrap.appendChild(cnt);
+
+                    wrap.onmousedown = (e) => {
+                        if(e.target.closest('.controles-npc') || e.target.closest('.interface-container')) return;
+                        e.stopPropagation(); let sx=e.clientX, sy=e.clientY, ox=data.x, oy=data.y;
+                        document.onmousemove=(m)=>{ data.x=ox+(m.clientX-sx)/scale; data.y=oy+(m.clientY-sy)/scale; wrap.style.left=data.x+"px"; wrap.style.top=data.y+"px"; };
+                        document.onmouseup=()=>{ document.onmousemove=null; salvarDados(); };
+                    };
+                }
+
+                img.onclick = () => wrap.querySelectorAll('.interface-container').forEach(ui => ui.classList.toggle('ativo'));
+                wrap.appendChild(img);
+                if(data.interfaces) data.interfaces.forEach((ui, idx) => renderizarInterface(wrap, data, ui, idx));
                 slotElement.appendChild(wrap);
             });
         }
 
-        // --- CONTROLES DE NAVEGAÇÃO ---
-        function update() { world.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`; }
-        function toggleGrid() { isGridVisible = !isGridVisible; world.classList.toggle('grid-hidden', !isGridVisible); }
-        function toggleEditMode() { isEditMode = !isEditMode; alert(isEditMode ? "Modo Edição Ativado (Apenas Visual)" : "Modo Visualização"); }
-        function changeLayer(v) { currentZ = Math.max(0, Math.min(15, currentZ + v)); document.getElementById('layerDisplay').innerText = currentZ; reloadMap(); }
-        function toggleVisibility(tipo, isVisible) { world.classList.toggle('hide-' + tipo, !isVisible); }
+        // --- ADIÇÃO DE NOVOS ELEMENTOS ---
+        async function adicionarGridLivre() {
+            const [h] = await window.showOpenFilePicker(); const f = await h.getFile();
+            const dim = await getImageDimensions(f);
+            const nome = `fix_${Date.now()}.png`;
+            const nh = await directoryHandle.getFileHandle(nome, {create:true});
+            const w = await nh.createWritable(); await w.write(f); await w.close();
+            const cX = Math.round(((-posX + window.innerWidth/2)/scale)/TILE_W);
+            const cY = Math.round(((-posY + window.innerHeight/2)/scale)/TILE_H);
+            mapData.correcoes.push({ id: Date.now(), arquivo: nome, x: 500, y: 350, w: dim.w, h: dim.h, z: currentZ, slotId: `${cX}_${cY}_${currentZ}`, tag: "", locked: false });
+            await salvarDados(); reloadMap();
+        }
 
-        // Mouse Drag & Zoom
-        let dragM = false, sxM, syM;
-        viewport.onmousedown = (e) => { if(e.button === 0) { dragM = true; sxM = e.clientX - posX; syM = e.clientY - posY; }};
-        window.onmousemove = (e) => { if(dragM) { posX = e.clientX - sxM; posY = e.clientY - syM; update(); atualizarGradeInfinita(); }};
-        window.onmouseup = () => dragM = false;
-        viewport.onwheel = (e) => {
-            e.preventDefault();
-            const rect = viewport.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-            const worldX = (mouseX - posX) / scale;
-            const worldY = (mouseY - posY) / scale;
-            scale *= e.deltaY < 0 ? 1.1 : 0.9;
-            posX = mouseX - worldX * scale;
-            posY = mouseY - worldY * scale;
-            update();
-            atualizarGradeInfinita();
+        async function adicionarEntidade(tipo) {
+            const [h] = await window.showOpenFilePicker(); const f = await h.getFile();
+            const dim = await getImageDimensions(f);
+            const nome = `${tipo}_${Date.now()}.png`;
+            const nh = await directoryHandle.getFileHandle(nome, {create:true});
+            const w = await nh.createWritable(); await w.write(f); await w.close();
+            const cX = Math.round(((-posX + window.innerWidth/2)/scale)/TILE_W);
+            const cY = Math.round(((-posY + window.innerHeight/2)/scale)/TILE_H);
+            mapData.entidades.push({ id: tipo+"_"+Date.now(), tipo: tipo, arquivo: nome, x: 500, y: 350, w: dim.w, h: dim.h, z: currentZ, slotId: `${cX}_${cY}_${currentZ}`, interfaces: [], tag: "" });
+            await salvarDados(); reloadMap();
+        }
+
+        async function adicionarInterface(entId) {
+            const ent = mapData.entidades.find(e => e.id === entId);
+            ent.interfaces.push({ id: "ui_"+Date.now(), arquivo: "default_ui.png", x: 50, y: -150, w: 200, h: 150, texts: [] });
+            await salvarDados(); reloadMap();
+        }
+
+        async function adicionarTextoUI(uiData) {
+            uiData.texts.push({ id: "txt_"+Date.now(), content: "Texto...", x: 10, y: 10, w: 180, h: 100 });
+            await salvarDados(); reloadMap();
+        }
+
+        // --- CONTROLE DE TELA E GRADES ---
+        function atualizarGradeInfinita() {
+            if(!directoryHandle) return;
+            const cX = Math.round(((-posX + window.innerWidth/2)/scale)/TILE_W);
+            const cY = Math.round(((-posY + window.innerHeight/2)/scale)/TILE_H);
+            for(let x = cX - 2; x <= cX + 2; x++) for(let y = cY - 2; y <= cY + 2; y++) criarSlot(x, y);
+        }
+
+        async function criarSlot(x, y) {
+            const id = `${x}_${y}_${currentZ}`;
+            if (slotsCriados.has(id)) return;
+            slotsCriados.add(id);
+            const div = document.createElement('div');
+            div.className = 'slot'; div.style.left = `${x * TILE_W}px`; div.style.top = `${y * TILE_H}px`;
+            div.innerHTML = `<div class="grid-overlay">${'<div></div>'.repeat(165)}</div><img class="map-base" style="display:none"><button class="btn-central" onclick="salvarSetor(${x}, ${y})">+</button>`;
+            world.appendChild(div);
+            try {
+                const f = await (await directoryHandle.getFileHandle(`${id}.png`)).getFile();
+                const img = div.querySelector('.map-base'); img.src = URL.createObjectURL(f); img.style.display = 'block';
+                div.querySelector('.btn-central').style.display = 'none';
+            } catch(e) {}
+            carregarConteudoSlot(id, div);
+        }
+
+        async function salvarSetor(x, y) {
+            const [h] = await window.showOpenFilePicker(); const f = await h.getFile();
+            const nh = await directoryHandle.getFileHandle(`${x}_${y}_${currentZ}.png`, {create:true});
+            const w = await nh.createWritable(); await w.write(f); await w.close();
+            reloadMap();
+        }
+
+        // --- EVENTOS DE INTERAÇÃO ---
+        document.getElementById('btnHandle').onclick = async () => {
+            directoryHandle = await window.showDirectoryPicker();
+            await carregarDados();
+            document.getElementById('status').innerText = "Status: Online";
+            document.getElementById('btnHandle').style.display = "none";
+            reloadMap();
         };
 
-        init();
+        function reloadMap() { slotsCriados.clear(); world.innerHTML = ''; atualizarGradeInfinita(); update(); }
+        function toggleGrid() { isGridVisible = !isGridVisible; world.classList.toggle('grid-hidden', !isGridVisible); }
+        function toggleEditMode() { isEditMode = !isEditMode; world.classList.toggle('view-mode', !isEditMode); reloadMap(); }
+        function changeLayer(v) { currentZ = Math.max(0, Math.min(15, currentZ + v)); document.getElementById('layerDisplay').innerText = currentZ; reloadMap(); }
+        function toggleGridColor() {
+            gridColorMode = (gridColorMode + 1) % 3;
+            world.classList.remove('grid-green', 'grid-red');
+            if(gridColorMode === 1) world.classList.add('grid-green');
+            if(gridColorMode === 2) world.classList.add('grid-red');
+        }
+
+        let dragM = false, sxM, syM;
+        viewport.onmousedown = (e) => { if(e.target === viewport || e.target.className.includes('slot')) { dragM = true; sxM = e.clientX - posX; syM = e.clientY - posY; }};
+        window.onmousemove = (e) => { if(dragM) { posX = e.clientX - sxM; posY = e.clientY - syM; update(); atualizarGradeInfinita(); }};
+        window.onmouseup = () => dragM = false;
+        viewport.onwheel = (e) => { 
+            e.preventDefault(); 
+            const wx = (e.clientX - posX) / scale; const wy = (e.clientY - posY) / scale;
+            scale *= e.deltaY < 0 ? 1.1 : 0.9;
+            posX = e.clientX - wx * scale; posY = e.clientY - wy * scale;
+            update(); atualizarGradeInfinita(); 
+        };
+        function update() { world.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`; }
+        update();
     </script>
 </body>
 </html>
