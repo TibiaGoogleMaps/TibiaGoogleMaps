@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Tibia Map Editor - Restored</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; color: white; }
+        #viewport { width: 100vw; height: 100vh; cursor: grab; position: relative; }
+        #world { position: absolute; transform-origin: 0 0; }
+        
+        .slot { position: absolute; width: 1078px; height: 790px; border: 1px solid #1a1a1a; background: #0a0a0a; display: flex; align-items: center; justify-content: center; }
+        .view-mode .slot { border: none; background: transparent; }
+
+        .grid-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: grid; grid-template-columns: repeat(15, 1fr); grid-template-rows: repeat(11, 1fr);
+            pointer-events: none; z-index: 2;
+        }
+        
+        /* Estilos de Cores do Grid */
+        .grid-overlay div { border: 0.5px solid rgba(255, 255, 255, 0.05); } 
+        .grid-green .grid-overlay div { border: 0.5px solid rgba(0, 255, 0, 0.4); }
+        .grid-red .grid-overlay div { border: 0.5px solid rgba(255, 0, 0, 0.4); }
+        
+        .grid-hidden .grid-overlay { display: none; }
+
+        .map-base { width: 100%; height: 100%; position: absolute; z-index: 1; image-rendering: pixelated; pointer-events: none; }
+        .btn-central { position: absolute; z-index: 5; width: 80px; height: 80px; border-radius: 50%; border: 2px dashed #444; background: none; color: #444; font-size: 40px; cursor: pointer; }
+        
+        .grid-livre { position: absolute; z-index: 50; image-rendering: pixelated; user-select: none; cursor: move; border: 1px solid transparent; }
+        .grid-livre.is-locked { cursor: default; pointer-events: none; }
+        .editavel-box .grid-livre:hover:not(.is-locked) { border: 1px dashed yellow; }
+        
+        .entidade-wrap { position: absolute; z-index: 60; }
+        .entidade-img { width: 100%; height: 100%; display: block; image-rendering: pixelated; cursor: pointer; }
+        
+        /* FILTROS DE VISIBILIDADE */
+        .hide-npc .type-npc, 
+        .hide-item .type-item, 
+        .hide-mob .type-mob,
+        .hide-balao .type-balao { display: none !important; }
+
+        .controles-npc { position: absolute; top: -35px; left: 0; display: flex; gap: 4px; z-index: 110; background: rgba(0,0,0,0.7); padding: 3px; border-radius: 5px; }
+        .btn-npc { border: none; padding: 4px 6px; border-radius: 3px; cursor: pointer; font-weight: bold; font-size: 11px; color: #000; background: #eee; }
+        .b-ui { background: #00e1ff; }
+        .b-tx { background: #ff00ff; color: #fff; }
+        .b-sz { background: #fff; font-size: 14px; line-height: 10px; }
+        .b-del { background: #ff4444; color: #fff; }
+        .b-tag { background: #ffea00; color: #000; }
+        .b-lock { background: #ffd700; color: #000; }
+
+        #search-container { position: fixed; top: 15px; right: 15px; width: 250px; z-index: 2000; }
+        #map-search { width: 100%; padding: 10px; background: rgba(0,0,0,0.8); border: 1px solid #444; color: #fff; border-radius: 4px; outline: none; }
+        #search-results { background: rgba(20,20,20,0.95); border: 1px solid #444; border-top: none; max-height: 300px; overflow-y: auto; border-radius: 0 0 4px 4px; }
+        
+        #filter-box { margin-top: 10px; background: rgba(0,0,0,0.8); border: 1px solid #444; padding: 10px; border-radius: 4px; font-size: 12px; }
+        .filter-item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; cursor: pointer; }
+        .filter-item input { cursor: pointer; }
+
+        .search-item { padding: 10px; border-bottom: 1px solid #333; cursor: pointer; font-size: 12px; }
+        .search-item:hover { background: #00e1ff; color: #000; }
+
+        .interface-container { position: absolute; z-index: 200; display: none; pointer-events: auto; }
+        .interface-container.ativo { display: block; }
+        .interface-img { width: 100%; height: 100%; display: block; image-rendering: pixelated; pointer-events: none; }
+
+        .ui-top-bar {
+            position: absolute; top: -35px; left: 0; width: 100%;
+            display: none; background: rgba(0,0,0,0.95); border: 1px solid #444;
+            padding: 5px; border-radius: 4px; z-index: 1000;
+            align-items: center; justify-content: space-between;
+        }
+        .editavel-box .ui-top-bar { display: flex; }
+        .color-dot { width: 18px; height: 18px; border-radius: 50%; cursor: pointer; border: 1px solid #fff; margin-right: 5px; }
+
+        .ui-scroll-area { position: absolute; overflow: visible; background: rgba(255,255,255,0.05); }
+        .editavel-box .ui-scroll-area { border: 1px dashed rgba(255,255,255,0.3); }
+        .controles-texto { position: absolute; top: -25px; left: 0; display: none; gap: 2px; background: rgba(0,0,0,0.8); padding: 2px; border-radius: 3px; z-index: 10; }
+        .editavel-box .controles-texto { display: flex; }
+        .handle-move-text { cursor: move; background: #555; color: white; padding: 2px 5px; font-size: 10px; border-radius: 2px; display: flex; align-items: center; }
+
+        .ui-texto { color: #fff; font-size: 14px; text-shadow: 1px 1px 0px #000; white-space: pre-wrap; outline: none; width: 100%; min-height: 20px; overflow-y: auto; height: 100%; }
+
+        .panel { position: fixed; background: rgba(0,0,0,0.9); padding: 12px; border-radius: 8px; border: 1px solid #333; z-index: 1000; }
+        .left { top: 15px; left: 15px; width: 220px; }
+        .right { top: 50%; right: 20px; transform: translateY(-50%); text-align: center; }
+        .btn-ui-main { width: 100%; padding: 8px; margin: 4px 0; cursor: pointer; background: #333; color: #fff; border: 1px solid #444; border-radius: 4px; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <div id="search-container">
+        <input type="text" id="map-search" placeholder="🔍 Buscar Tag ou Nome..." oninput="buscarTags()">
+        <div id="search-results"></div>
+        
+        <div id="filter-box">
+            <div style="margin-bottom:8px; border-bottom:1px solid #333; padding-bottom:4px;"><strong>Visualização</strong></div>
+            <label class="filter-item"><input type="checkbox" checked onchange="toggleVisibility('npc', this.checked)"> NPCs</label>
+            <label class="filter-item"><input type="checkbox" checked onchange="toggleVisibility('item', this.checked)"> Itens</label>
+            <label class="filter-item"><input type="checkbox" checked onchange="toggleVisibility('mob', this.checked)"> Monstros</label>
+            <label class="filter-item"><input type="checkbox" checked onchange="toggleVisibility('balao', this.checked)"> Balões</label>
+        </div>
+    </div>
+
+    <div class="panel left">
+        <strong>Tibia Editor Pro</strong><br><br>
+        <button class="btn-ui-main" id="btnHandle" style="background:#0f0; color:#000;">1. Conectar Pasta</button>
+        <button class="btn-ui-main" onclick="adicionarGridLivre()">2. + Correção</button>
+        
+        <button class="btn-ui-main" onclick="adicionarEntidade('npc')" style="background:#ffcc00; color:#000;">+ NPC</button>
+        <button class="btn-ui-main" onclick="adicionarEntidade('item')" style="background:#00e1ff; color:#000;">+ Item</button>
+        <button class="btn-ui-main" onclick="adicionarEntidade('mob')" style="background:#ff4444; color:#fff;">+ Monstro</button>
+        <button class="btn-ui-main" onclick="adicionarEntidade('balao')" style="background:#ff00ff; color:#fff;">+ Balão</button>
+        
+        <hr style="border:0; border-top:1px solid #333; margin:10px 0;">
+        <button class="btn-ui-main" onclick="toggleGrid()">Grade: ON/OFF</button>
+        <button class="btn-ui-main" onclick="toggleGridColor()" id="btnGridColor" style="color: #0f0;">Cor do Grid: Original</button>
+        <button class="btn-ui-main" onclick="toggleEditMode()">Montagem (+): ON/OFF</button>
+        <div id="status" style="font-size:11px; color: #888;">Offline</div>
+    </div>
+
+    <div class="panel right">
+        <small>Z-AXIS</small><br>
+        <button class="btn-ui-main" onclick="changeLayer(-1)">▲</button>
+        <div style="font-size:24px; color:#0f0;" id="layerDisplay">7</div>
+        <button class="btn-ui-main" onclick="changeLayer(1)">▼</button>
+    </div>
+
+    <div id="viewport"><div id="world"></div></div>
+
+    <script>
+        const world = document.getElementById('world');
+        const viewport = document.getElementById('viewport');
+        const TILE_W = 1078, TILE_H = 790;
+        let directoryHandle = null, scale = 0.15, posX = window.innerWidth/2, posY = window.innerHeight/2;
+        let currentZ = 7, isGridVisible = true, isEditMode = true;
+        let gridColorMode = 0; 
+        let mapData = { correcoes: [], entidades: [] };
+        const slotsCriados = new Set();
+        let activeTextEl = null;
+
+        function toggleGridColor() {
+            gridColorMode = (gridColorMode + 1) % 3;
+            const btn = document.getElementById('btnGridColor');
+            world.classList.remove('grid-green', 'grid-red');
+            if (gridColorMode === 0) {
+                btn.innerText = "Cor do Grid: Original"; btn.style.color = "#fff";
+            } else if (gridColorMode === 1) {
+                world.classList.add('grid-green'); btn.innerText = "Cor do Grid: Verde"; btn.style.color = "#0f0";
+            } else if (gridColorMode === 2) {
+                world.classList.add('grid-red'); btn.innerText = "Cor do Grid: Vermelho"; btn.style.color = "#f44";
+            }
+        }
+
+        function getImageDimensions(file) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve({ w: img.width, h: img.height });
+                img.src = URL.createObjectURL(file);
+            });
+        }
+
+        async function salvarDados() {
+            if(!directoryHandle) return;
+            const fh = await directoryHandle.getFileHandle('map_data.json', {create:true});
+            const w = await fh.createWritable(); await w.write(JSON.stringify(mapData)); await w.close();
+        }
+
+        function toggleVisibility(tipo, isVisible) {
+            world.classList.toggle('hide-' + tipo, !isVisible);
+        }
+
+        function buscarTags() {
+            const termo = document.getElementById('map-search').value.toLowerCase();
+            const resDiv = document.getElementById('search-results');
+            resDiv.innerHTML = '';
+            if(!termo) return;
+            const lista = [...mapData.entidades, ...mapData.correcoes].filter(obj => obj.tag && obj.tag.toLowerCase().includes(termo));
+            lista.forEach(obj => {
+                const div = document.createElement('div');
+                div.className = 'search-item';
+                div.innerText = `[Z${obj.z}] ${obj.tag}`;
+                div.onclick = () => {
+                    currentZ = obj.z; document.getElementById('layerDisplay').innerText = currentZ;
+                    const [sx, sy] = obj.slotId.split('_').map(Number);
+                    const realX = (sx * TILE_W) + obj.x; const realY = (sy * TILE_H) + obj.y;
+                    posX = (window.innerWidth / 2) - (realX * scale); posY = (window.innerHeight / 2) - (realY * scale);
+                    reloadMap(); resDiv.innerHTML = ''; document.getElementById('map-search').value = '';
+                };
+                resDiv.appendChild(div);
+            });
+        }
+
+        function criarBotoesTamanho(parent, data, elementoAlvo) {
+            const bTag = document.createElement('button');
+            bTag.className = 'btn-npc b-tag'; bTag.innerText = 'TAG';
+            bTag.onclick = (e) => { e.stopPropagation(); const n = prompt("Tag:", data.tag||""); if(n!==null){data.tag=n; salvarDados();} };
+            parent.appendChild(bTag);
+
+            const btnMais = document.createElement('button');
+            btnMais.className = 'btn-npc b-sz'; btnMais.innerText = '+';
+            btnMais.onclick = (e) => { e.stopPropagation(); data.w *= 1.1; data.h *= 1.1; elementoAlvo.style.width = data.w + "px"; elementoAlvo.style.height = data.h + "px"; salvarDados(); };
+
+            const btnMenos = document.createElement('button');
+            btnMenos.className = 'btn-npc b-sz'; btnMenos.innerText = '-';
+            btnMenos.onclick = (e) => { e.stopPropagation(); data.w *= 0.9; data.h *= 0.9; elementoAlvo.style.width = data.w + "px"; elementoAlvo.style.height = data.h + "px"; salvarDados(); };
+
+            parent.appendChild(btnMais); parent.appendChild(btnMenos);
+        }
+
+        function renderizarInterface(parent, entData, uiData, uiIndex) {
+            const container = document.createElement('div');
+            container.className = 'interface-container';
+            if (isEditMode) container.classList.add('editavel-box');
+            container.style.cssText = `left:${uiData.x}px; top:${uiData.y}px; width:${uiData.w}px; height:${uiData.h}px;`;
+
+            const topBar = document.createElement('div');
+            topBar.className = 'ui-top-bar';
+            
+            const uiControls = document.createElement('div');
+            uiControls.style.display = 'flex'; uiControls.style.gap = '2px';
+            
+            const bWp = document.createElement('button'); bWp.className='btn-npc b-sz'; bWp.innerText='W+';
+            bWp.onclick=(e)=>{ e.stopPropagation(); uiData.w*=1.1; container.style.width=uiData.w+'px'; salvarDados(); };
+            
+            const bWm = document.createElement('button'); bWm.className='btn-npc b-sz'; bWm.innerText='W-';
+            bWm.onclick=(e)=>{ e.stopPropagation(); uiData.w*=0.9; container.style.width=uiData.w+'px'; salvarDados(); };
+
+            const bHp = document.createElement('button'); bHp.className='btn-npc b-sz'; bHp.innerText='H+';
+            bHp.onclick=(e)=>{ e.stopPropagation(); uiData.h*=1.1; container.style.height=uiData.h+'px'; salvarDados(); };
+            
+            const bHm = document.createElement('button'); bHm.className='btn-npc b-sz'; bHm.innerText='H-';
+            bHm.onclick=(e)=>{ e.stopPropagation(); uiData.h*=0.9; container.style.height=uiData.h+'px'; salvarDados(); };
+
+            uiControls.append(bWp, bWm, bHp, bHm);
+
+            const colors = document.createElement('div');
+            colors.style.display = 'flex';
+            ['#ffffff', '#00ebff', '#ffff00', '#ff0000', '#00ff00'].forEach(cor => {
+                const dot = document.createElement('div');
+                dot.className = 'color-dot'; dot.style.background = cor;
+                dot.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); if(activeTextEl) document.execCommand('foreColor', false, cor); };
+                colors.appendChild(dot);
+            });
+
+            const btnDel = document.createElement('button');
+            btnDel.className = 'btn-npc b-del'; btnDel.innerText = 'DEL';
+            btnDel.onclick = () => { if(confirm("Remover Interface?")) { entData.interfaces.splice(uiIndex,1); salvarDados(); reloadMap(); }};
+
+            topBar.append(uiControls, colors, btnDel);
+            container.appendChild(topBar);
+
+            const img = document.createElement('img');
+            img.className = 'interface-img';
+            directoryHandle.getFileHandle(uiData.arquivo).then(h => h.getFile()).then(f => { img.src = URL.createObjectURL(f); }).catch(e => { console.error("Erro ao carregar UI", e); });
+            container.appendChild(img);
+
+            if(uiData.texts) {
+                uiData.texts.forEach((t) => {
+                    const area = document.createElement('div');
+                    area.className = 'ui-scroll-area';
+                    area.style.cssText = `left:${t.x}px; top:${t.y}px; width:${t.w}px; height:${t.h}px;`;
+                    
+                    const ctrlT = document.createElement('div');
+                    ctrlT.className = 'controles-texto';
+                    
+                    const moveHandle = document.createElement('div');
+                    moveHandle.className = 'handle-move-text';
+                    moveHandle.innerText = '✛';
+                    
+                    const btW = document.createElement('button'); btW.className='btn-npc b-sz'; btW.innerText='W+';
+                    btW.onclick=(e)=>{ e.stopPropagation(); t.w*=1.1; area.style.width=t.w+'px'; salvarDados(); };
+                    const btWm = document.createElement('button'); btWm.className='btn-npc b-sz'; btWm.innerText='W-';
+                    btWm.onclick=(e)=>{ e.stopPropagation(); t.w*=0.9; area.style.width=t.w+'px'; salvarDados(); };
+                    const btH = document.createElement('button'); btH.className='btn-npc b-sz'; btH.innerText='H+';
+                    btH.onclick=(e)=>{ e.stopPropagation(); t.h*=1.1; area.style.height=t.h+'px'; salvarDados(); };
+                    const btHm = document.createElement('button'); btHm.className='btn-npc b-sz'; btHm.innerText='H-';
+                    btHm.onclick=(e)=>{ e.stopPropagation(); t.h*=0.9; area.style.height=t.h+'px'; salvarDados(); };
+                    
+                    ctrlT.append(moveHandle, btW, btWm, btH, btHm);
+                    area.appendChild(ctrlT);
+
+                    const txt = document.createElement('div');
+                    txt.className = 'ui-texto'; txt.innerHTML = t.content; txt.contentEditable = isEditMode;
+                    
+                    if(isEditMode) {
+                        txt.onfocus = () => { activeTextEl = txt; container.style.zIndex = 1000; };
+                        txt.onblur = () => { t.content = txt.innerHTML; salvarDados(); };
+                        moveHandle.onmousedown = (e) => {
+                            e.preventDefault(); e.stopPropagation();
+                            let sx=e.clientX, sy=e.clientY, ox=t.x, oy=t.y;
+                            document.onmousemove=(m)=>{ t.x = ox + (m.clientX - sx)/scale; t.y = oy + (m.clientY - sy)/scale; area.style.left = t.x + "px"; area.style.top = t.y + "px"; };
+                            document.onmouseup=()=>{ document.onmousemove=null; salvarDados(); };
+                        };
+                    }
+                    area.appendChild(txt); container.appendChild(area);
+                });
+            }
+
+            if(isEditMode) {
+                container.onmousedown = (e) => {
+                    if(e.target.closest('.ui-scroll-area') || e.target.closest('.ui-top-bar')) return;
+                    e.stopPropagation(); let sx=e.clientX, sy=e.clientY, ox=uiData.x, oy=uiData.y;
+                    document.onmousemove=(m)=>{ uiData.x=ox+(m.clientX-sx)/scale; uiData.y=oy+(m.clientY-sy)/scale; container.style.left=uiData.x+"px"; container.style.top=uiData.y+"px"; };
+                    document.onmouseup=()=>{ document.onmousemove=null; salvarDados(); };
+                };
+            }
+            parent.appendChild(container);
+        }
+
+        async function carregarCorrecoesDoSlot(slotId, slotElement) {
+            mapData.correcoes.filter(c => c.slotId === slotId && c.z === currentZ).forEach(async data => {
+                const img = document.createElement('img');
+                const f = await (await directoryHandle.getFileHandle(data.arquivo)).getFile();
+                img.src = URL.createObjectURL(f); 
+                img.className = 'grid-livre' + (data.locked ? ' is-locked' : '');
+                img.style.cssText = `left:${data.x}px; top:${data.y}px; width:${data.w}px; height:${data.h}px;`;
+                
+                if(isEditMode) {
+                    const cnt = document.createElement('div'); cnt.className = 'controles-npc';
+                    
+                    const btnLock = document.createElement('button');
+                    btnLock.className = 'btn-npc b-lock';
+                    btnLock.innerText = data.locked ? "🔒" : "🔓";
+                    btnLock.onclick = (e) => {
+                        e.stopPropagation();
+                        data.locked = !data.locked;
+                        salvarDados();
+                        reloadMap();
+                    };
+                    cnt.appendChild(btnLock);
+
+                    criarBotoesTamanho(cnt, data, img);
+                    const bDel = document.createElement('button'); bDel.className='btn-npc b-del'; bDel.innerText="X";
+                    bDel.onclick = () => { if(confirm("Remover correção?")) { mapData.correcoes = mapData.correcoes.filter(c => c.id !== data.id); salvarDados(); reloadMap(); }};
+                    cnt.appendChild(bDel); slotElement.appendChild(cnt);
+                    cnt.style.left = data.x + "px"; cnt.style.top = (data.y - 35) + "px";
+                    
+                    img.onmousedown = (e) => {
+                        if(data.locked) return;
+                        e.stopPropagation(); let sx=e.clientX, sy=e.clientY, ox=data.x, oy=data.y;
+                        document.onmousemove=(m)=>{ data.x=ox+(m.clientX-sx)/scale; data.y=oy+(m.clientY-sy)/scale; img.style.left=data.x+"px"; img.style.top=data.y+"px"; cnt.style.left=data.x+"px"; cnt.style.top=(data.y-35)+"px"; };
+                        document.onmouseup=()=>{ document.onmousemove=null; salvarDados(); };
+                    };
+                }
+                slotElement.appendChild(img);
+            });
+
+            mapData.entidades.filter(e => e.slotId === slotId && e.z === currentZ).forEach(async data => {
+                const wrap = document.createElement('div'); 
+                wrap.className = `entidade-wrap type-${data.tipo || 'npc'}`;
+                wrap.style.cssText = `left:${data.x}px; top:${data.y}px; width:${data.w}px; height:${data.h}px;`;
+                const img = document.createElement('img');
+                const f = await (await directoryHandle.getFileHandle(data.arquivo)).getFile();
+                img.src = URL.createObjectURL(f); img.className = 'entidade-img';
+                wrap.appendChild(img);
+                if(isEditMode) {
+                    const cnt = document.createElement('div'); cnt.className = 'controles-npc';
+                    const bUI = document.createElement('button'); bUI.className='btn-npc b-ui'; bUI.innerText="UI+"; bUI.onclick=()=>adicionarInterface(data.id);
+                    const bTX = document.createElement('button'); bTX.className='btn-npc b-tx'; bTX.innerText="T+"; bTX.onclick=()=>{
+                         if(data.interfaces && data.interfaces.length > 0) adicionarTextoUI(data.interfaces[0]);
+                         else alert("Crie uma UI primeiro!");
+                    };
+                    cnt.append(bUI, bTX); 
+                    criarBotoesTamanho(cnt, data, wrap);
+                    const bDel = document.createElement('button'); bDel.className='btn-npc b-del'; bDel.innerText="DEL";
+                    bDel.onclick = () => { if(confirm("Deletar?")) { mapData.entidades = mapData.entidades.filter(en => en.id !== data.id); salvarDados(); reloadMap(); }};
+                    cnt.appendChild(bDel); wrap.appendChild(cnt);
+                    wrap.onmousedown = (e) => {
+                        if(e.target.closest('.controles-npc') || e.target.closest('.interface-container')) return;
+                        e.stopPropagation(); let sx=e.clientX, sy=e.clientY, ox=data.x, oy=data.y;
+                        document.onmousemove=(m)=>{ data.x=ox+(m.clientX-sx)/scale; data.y=oy+(m.clientY-sy)/scale; wrap.style.left=data.x+"px"; wrap.style.top=data.y+"px"; };
+                        document.onmouseup=()=>{ document.onmousemove=null; salvarDados(); };
+                    };
+                }
+                img.onclick = () => wrap.querySelectorAll('.interface-container').forEach(ui => ui.classList.toggle('ativo'));
+                if(data.interfaces) data.interfaces.forEach((ui, idx) => renderizarInterface(wrap, data, ui, idx));
+                slotElement.appendChild(wrap);
+            });
+        }
+
+        async function adicionarGridLivre() {
+            const [h] = await window.showOpenFilePicker(); const f = await h.getFile();
+            const dim = await getImageDimensions(f);
+            const nome = `fix_${Date.now()}.png`; const nh = await directoryHandle.getFileHandle(nome, {create:true});
+            const w = await nh.createWritable(); await w.write(f); await w.close();
+            const cX = Math.round(((-posX + window.innerWidth/2)/scale)/TILE_W);
+            const cY = Math.round(((-posY + window.innerHeight/2)/scale)/TILE_H);
+            mapData.correcoes.push({ id: Date.now(), arquivo: nome, x: 500, y: 350, w: dim.w, h: dim.h, z: currentZ, slotId: `${cX}_${cY}_${currentZ}`, tag: "", locked: false });
+            await salvarDados(); reloadMap();
+        }
+
+        async function adicionarEntidade(tipo) {
+            const [h] = await window.showOpenFilePicker(); const f = await h.getFile();
+            const dim = await getImageDimensions(f);
+            const nome = `${tipo}_${Date.now()}.png`;
+            const nh = await directoryHandle.getFileHandle(nome, {create:true});
+            const w = await nh.createWritable(); await w.write(f); await w.close();
+            const cX = Math.round(((-posX + window.innerWidth/2)/scale)/TILE_W);
+            const cY = Math.round(((-posY + window.innerHeight/2)/scale)/TILE_H);
+            mapData.entidades.push({ id: tipo + "_" + Date.now(), tipo: tipo, arquivo: nome, x: 500, y: 350, w: dim.w, h: dim.h, z: currentZ, slotId: `${cX}_${cY}_${currentZ}`, interfaces: [], tag: "" });
+            await salvarDados(); reloadMap(); 
+        }
+
+        async function adicionarInterface(entId) {
+            let nomePadrao = "default_ui.png";
+            let arquivoExiste = false;
+            try { await directoryHandle.getFileHandle(nomePadrao); arquivoExiste = true; } catch (e) { arquivoExiste = false; }
+            if (!arquivoExiste) {
+                alert("Selecione uma imagem para ser o PADRÃO das interfaces (default_ui.png)");
+                try {
+                    const [h] = await window.showOpenFilePicker();
+                    const f = await h.getFile();
+                    const nh = await directoryHandle.getFileHandle(nomePadrao, { create: true });
+                    const w = await nh.createWritable(); await w.write(f); await w.close();
+                } catch(err) { return; }
+            }
+            const ent = mapData.entidades.find(e => e.id === entId);
+            ent.interfaces.push({ id: "ui_" + Date.now(), arquivo: nomePadrao, x: 50, y: -150, w: 200, h: 150, texts: [] });
+            await salvarDados(); reloadMap();
+        }
+
+        async function adicionarTextoUI(uiData) {
+            if(!uiData) return alert("Crie uma UI primeiro!");
+            if(!uiData.texts) uiData.texts = [];
+            uiData.texts.push({ id: "txt_"+Date.now(), content: "Texto...", x: 10, y: 10, w: 180, h: 100 });
+            await salvarDados(); reloadMap();
+        }
+
+        async function carregarDados() {
+            try { const fh = await directoryHandle.getFileHandle('map_data.json'); mapData = JSON.parse(await (await fh.getFile()).text()); } catch(e) { mapData = { correcoes: [], entidades: [] }; }
+        }
+
+        function atualizarGradeInfinita() {
+            if(!directoryHandle) return;
+            const cX = Math.round(((-posX + window.innerWidth/2)/scale)/TILE_W);
+            const cY = Math.round(((-posY + window.innerHeight/2)/scale)/TILE_H);
+            for(let x = cX - 2; x <= cX + 2; x++) for(let y = cY - 2; y <= cY + 2; y++) criarSlot(x, y);
+        }
+
+        async function criarSlot(x, y) {
+            const id = `${x}_${y}_${currentZ}`;
+            if (slotsCriados.has(id)) return;
+            slotsCriados.add(id);
+            const div = document.createElement('div');
+            div.className = 'slot'; div.style.left = `${x * TILE_W}px`; div.style.top = `${y * TILE_H}px`;
+            div.innerHTML = `<div class="grid-overlay">${'<div></div>'.repeat(165)}</div><img class="map-base" style="display:none"><button class="btn-central" onclick="salvarSetor(${x}, ${y})">+</button>`;
+            world.appendChild(div);
+            try {
+                const f = await (await directoryHandle.getFileHandle(`${id}.png`)).getFile();
+                const img = div.querySelector('.map-base'); img.src = URL.createObjectURL(f); img.style.display = 'block';
+                div.querySelector('.btn-central').style.display = 'none';
+            } catch(e) {}
+            carregarCorrecoesDoSlot(id, div);
+        }
+
+        async function salvarSetor(x, y) {
+            const [h] = await window.showOpenFilePicker(); const f = await h.getFile();
+            const nh = await directoryHandle.getFileHandle(`${x}_${y}_${currentZ}.png`, {create:true});
+            const w = await nh.createWritable(); await w.write(f); await w.close();
+            reloadMap();
+        }
+
+        document.getElementById('btnHandle').onclick = async () => {
+            directoryHandle = await window.showDirectoryPicker();
+            await carregarDados();
+            document.getElementById('status').innerText = "Status: Online";
+            document.getElementById('btnHandle').style.display = "none";
+            reloadMap();
+        };
+
+        function reloadMap() { slotsCriados.clear(); world.innerHTML = ''; atualizarGradeInfinita(); update(); }
+        function toggleGrid() { isGridVisible = !isGridVisible; world.classList.toggle('grid-hidden', !isGridVisible); }
+        function toggleEditMode() { isEditMode = !isEditMode; world.classList.toggle('view-mode', !isEditMode); reloadMap(); }
+        function changeLayer(v) { currentZ = Math.max(0, Math.min(15, currentZ + v)); document.getElementById('layerDisplay').innerText = currentZ; reloadMap(); }
+        
+        let dragM = false, sxM, syM;
+        viewport.onmousedown = (e) => { if(e.target === viewport || e.target.className.includes('slot')) { dragM = true; sxM = e.clientX - posX; syM = e.clientY - posY; }};
+        window.onmousemove = (e) => { if(dragM) { posX = e.clientX - sxM; posY = e.clientY - syM; update(); atualizarGradeInfinita(); }};
+        window.onmouseup = () => dragM = false;
+        viewport.onwheel = (e) => { e.preventDefault(); const wx = (e.clientX - posX) / scale; const wy = (e.clientY - posY) / scale; scale *= e.deltaY < 0 ? 1.1 : 0.9; posX = e.clientX - wx * scale; posY = e.clientY - wy * scale; update(); atualizarGradeInfinita(); };
+        function update() { world.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`; }
+        update(); 
+    </script>
+</body>
+</html>
