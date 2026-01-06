@@ -2,9 +2,9 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Tibia Map Viewer - GitHub Hosted</title>
+    <title>Tibia Map Editor - GitHub Mode</title>
     <style>
-        /* Mantenha todo o seu CSS original aqui */
+        /* CSS INTEGRAL RESTAURADO */
         body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; color: white; }
         #viewport { width: 100vw; height: 100vh; cursor: grab; position: relative; }
         #world { position: absolute; transform-origin: 0 0; }
@@ -12,196 +12,257 @@
         .view-mode .slot { border: none; background: transparent; }
         .grid-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: grid; grid-template-columns: repeat(15, 1fr); grid-template-rows: repeat(11, 1fr); pointer-events: none; z-index: 2; }
         .grid-overlay div { border: 0.5px solid rgba(255, 255, 255, 0.05); } 
+        .grid-green .grid-overlay div { border: 0.5px solid rgba(0, 255, 0, 0.4); }
+        .grid-red .grid-overlay div { border: 0.5px solid rgba(255, 0, 0, 0.4); }
         .grid-hidden .grid-overlay { display: none; }
         .map-base { width: 100%; height: 100%; position: absolute; z-index: 1; image-rendering: pixelated; pointer-events: none; }
-        .grid-livre { position: absolute; z-index: 50; image-rendering: pixelated; user-select: none; }
+        .btn-central { position: absolute; z-index: 5; width: 80px; height: 80px; border-radius: 50%; border: 2px dashed #444; background: none; color: #444; font-size: 40px; cursor: pointer; }
+        .grid-livre { position: absolute; z-index: 50; image-rendering: pixelated; user-select: none; cursor: move; border: 1px solid transparent; }
+        .grid-livre.is-locked { cursor: default; pointer-events: none; }
+        .editavel-box .grid-livre:hover:not(.is-locked) { border: 1px dashed yellow; }
         .entidade-wrap { position: absolute; z-index: 60; }
         .entidade-img { width: 100%; height: 100%; display: block; image-rendering: pixelated; cursor: pointer; }
+        .hide-npc .type-npc, .hide-item .type-item, .hide-mob .type-mob, .hide-balao .type-balao { display: none !important; }
+        .controles-npc { position: absolute; top: -35px; left: 0; display: flex; gap: 4px; z-index: 110; background: rgba(0,0,0,0.7); padding: 3px; border-radius: 5px; }
+        .btn-npc { border: none; padding: 4px 6px; border-radius: 3px; cursor: pointer; font-weight: bold; font-size: 11px; color: #000; background: #eee; }
+        .b-ui { background: #00e1ff; }
+        .b-tx { background: #ff00ff; color: #fff; }
+        .b-sz { background: #fff; font-size: 14px; line-height: 10px; }
+        .b-del { background: #ff4444; color: #fff; }
+        .b-tag { background: #ffea00; color: #000; }
+        .b-lock { background: #ffd700; color: #000; }
+        #search-container { position: fixed; top: 15px; right: 15px; width: 250px; z-index: 2000; }
+        #map-search { width: 100%; padding: 10px; background: rgba(0,0,0,0.8); border: 1px solid #444; color: #fff; border-radius: 4px; outline: none; }
+        #search-results { background: rgba(20,20,20,0.95); border: 1px solid #444; border-top: none; max-height: 300px; overflow-y: auto; border-radius: 0 0 4px 4px; }
+        #filter-box { margin-top: 10px; background: rgba(0,0,0,0.8); border: 1px solid #444; padding: 10px; border-radius: 4px; font-size: 12px; }
+        .filter-item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; cursor: pointer; }
+        .search-item { padding: 10px; border-bottom: 1px solid #333; cursor: pointer; font-size: 12px; }
+        .search-item:hover { background: #00e1ff; color: #000; }
         .interface-container { position: absolute; z-index: 200; display: none; pointer-events: auto; }
         .interface-container.ativo { display: block; }
-        .interface-img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
-        .ui-scroll-area { position: absolute; overflow: visible; }
-        .ui-texto { color: #fff; font-size: 14px; text-shadow: 1px 1px 0px #000; white-space: pre-wrap; width: 100%; }
+        .interface-img { width: 100%; height: 100%; display: block; image-rendering: pixelated; pointer-events: none; }
+        .ui-top-bar { position: absolute; top: -35px; left: 0; width: 100%; display: none; background: rgba(0,0,0,0.95); border: 1px solid #444; padding: 5px; border-radius: 4px; z-index: 1000; align-items: center; justify-content: space-between; }
+        .editavel-box .ui-top-bar { display: flex; }
+        .color-dot { width: 18px; height: 18px; border-radius: 50%; cursor: pointer; border: 1px solid #fff; margin-right: 5px; }
+        .ui-scroll-area { position: absolute; overflow: visible; background: rgba(255,255,255,0.05); }
+        .editavel-box .ui-scroll-area { border: 1px dashed rgba(255,255,255,0.3); }
+        .controles-texto { position: absolute; top: -25px; left: 0; display: none; gap: 2px; background: rgba(0,0,0,0.8); padding: 2px; border-radius: 3px; z-index: 10; }
+        .editavel-box .controles-texto { display: flex; }
+        .handle-move-text { cursor: move; background: #555; color: white; padding: 2px 5px; font-size: 10px; border-radius: 2px; display: flex; align-items: center; }
+        .ui-texto { color: #fff; font-size: 14px; text-shadow: 1px 1px 0px #000; white-space: pre-wrap; outline: none; width: 100%; min-height: 20px; overflow-y: auto; height: 100%; }
         .panel { position: fixed; background: rgba(0,0,0,0.9); padding: 12px; border-radius: 8px; border: 1px solid #333; z-index: 1000; }
         .left { top: 15px; left: 15px; width: 220px; }
         .right { top: 50%; right: 20px; transform: translateY(-50%); text-align: center; }
-        #search-container { position: fixed; top: 15px; right: 15px; width: 250px; z-index: 2000; }
-        #map-search { width: 100%; padding: 10px; background: rgba(0,0,0,0.8); border: 1px solid #444; color: #fff; border-radius: 4px; }
+        .btn-ui-main { width: 100%; padding: 8px; margin: 4px 0; cursor: pointer; background: #333; color: #fff; border: 1px solid #444; border-radius: 4px; font-size: 12px; }
     </style>
 </head>
 <body>
 
     <div id="search-container">
-        <input type="text" id="map-search" placeholder="🔍 Buscar Tag..." oninput="buscarTags()">
+        <input type="text" id="map-search" placeholder="🔍 Buscar Tag ou Nome..." oninput="buscarTags()">
         <div id="search-results"></div>
+        <div id="filter-box">
+            <div style="margin-bottom:8px; border-bottom:1px solid #333; padding-bottom:4px;"><strong>Visualização</strong></div>
+            <label class="filter-item"><input type="checkbox" checked onchange="toggleVisibility('npc', this.checked)"> NPCs</label>
+            <label class="filter-item"><input type="checkbox" checked onchange="toggleVisibility('item', this.checked)"> Itens</label>
+            <label class="filter-item"><input type="checkbox" checked onchange="toggleVisibility('mob', this.checked)"> Monstros</label>
+            <label class="filter-item"><input type="checkbox" checked onchange="toggleVisibility('balao', this.checked)"> Balões</label>
+        </div>
     </div>
 
     <div class="panel left">
-        <strong>Tibia Map Viewer</strong><br><br>
-        <div id="status" style="font-size:11px; color: #0f0;">Carregando do GitHub...</div>
-        <hr style="border:0; border-top:1px solid #333; margin:10px 0;">
-        <button style="width:100%" onclick="toggleGrid()">Grade: ON/OFF</button>
+        <strong>Tibia Editor (GitHub Mode)</strong><br><br>
+        <button class="btn-ui-main" onclick="exportarConfig()" style="background:#00e1ff; color:#000;">💾 Exportar map_data.json</button>
+        <button class="btn-ui-main" onclick="toggleGrid()">Grade: ON/OFF</button>
+        <button class="btn-ui-main" onclick="toggleEditMode()">Montagem (+): ON/OFF</button>
+        <div id="status" style="font-size:11px; color: #0f0;">Lendo do GitHub...</div>
     </div>
 
     <div class="panel right">
         <small>Z-AXIS</small><br>
-        <button onclick="changeLayer(-1)">▲</button>
+        <button class="btn-ui-main" onclick="changeLayer(-1)">▲</button>
         <div style="font-size:24px; color:#0f0;" id="layerDisplay">7</div>
-        <button onclick="changeLayer(1)">▼</button>
+        <button class="btn-ui-main" onclick="changeLayer(1)">▼</button>
     </div>
 
     <div id="viewport"><div id="world"></div></div>
 
     <script>
-        // --- CONFIGURAÇÃO DO GITHUB ---
-        // Substitua pelo seu usuário, repositório e pasta (se houver)
-        const GITHUB_USER = "SEU_USUARIO";
-        const GITHUB_REPO = "SEU_REPOSITORIO";
-        const GITHUB_BRANCH = "main";
-        const GITHUB_FOLDER = "mapcontainer"; 
-        
-        const GITHUB_BASE_URL = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${GITHUB_FOLDER}`;
-        // ------------------------------
+        // --- CONFIGURAÇÃO OBRIGATÓRIA ---
+        // Coloque aqui o link da sua pasta 'mapcontainer' no GitHub (Raw)
+        const GITHUB_URL = "https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPO/main/mapcontainer";
 
         const world = document.getElementById('world');
         const viewport = document.getElementById('viewport');
         const TILE_W = 1078, TILE_H = 790;
         let scale = 0.15, posX = window.innerWidth/2, posY = window.innerHeight/2;
-        let currentZ = 7, isGridVisible = true;
+        let currentZ = 7, isGridVisible = true, isEditMode = true;
         let mapData = { correcoes: [], entidades: [] };
         const slotsCriados = new Set();
+        let activeTextEl = null;
 
-        async function carregarDadosIniciais() {
+        // Função para carregar os dados iniciais do GitHub
+        async function inicializar() {
             try {
-                const response = await fetch(`${GITHUB_BASE_URL}/map_data.json`);
-                if(response.ok) {
-                    mapData = await response.json();
-                    document.getElementById('status').innerText = "Status: Online (GitHub)";
-                }
+                const r = await fetch(`${GITHUB_URL}/map_data.json`);
+                if(r.ok) mapData = await r.json();
                 reloadMap();
-            } catch(e) {
-                console.error("Erro ao carregar map_data.json", e);
-                document.getElementById('status').innerText = "Erro ao carregar JSON";
+            } catch(e) { console.log("Iniciando mapa vazio ou erro de CORS."); reloadMap(); }
+        }
+
+        // Simulação do sistema de arquivos para não quebrar sua lógica de renderização
+        function getImgUrl(arquivo) {
+            return `${GITHUB_URL}/${arquivo}`;
+        }
+
+        // Função de "Salvar" adaptada: Como o navegador não grava no GitHub, 
+        // ele gera o arquivo para você baixar e substituir no repo.
+        function salvarDados() {
+            console.log("Dados atualizados na memória. Use o botão Exportar para gerar o arquivo do GitHub.");
+        }
+
+        function exportarConfig() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(mapData));
+            const dlAnchorElem = document.createElement('a');
+            dlAnchorElem.setAttribute("href", dataStr);
+            dlAnchorElem.setAttribute("download", "map_data.json");
+            dlAnchorElem.click();
+        }
+
+        // --- RESTO DO SEU CÓDIGO ORIGINAL (LOGICA DE RENDERIZAÇÃO E EDIÇÃO) ---
+
+        function renderizarInterface(parent, entData, uiData, uiIndex) {
+            const container = document.createElement('div');
+            container.className = 'interface-container';
+            if (isEditMode) container.classList.add('editavel-box');
+            container.style.cssText = `left:${uiData.x}px; top:${uiData.y}px; width:${uiData.w}px; height:${uiData.h}px;`;
+
+            const topBar = document.createElement('div');
+            topBar.className = 'ui-top-bar';
+            
+            const uiControls = document.createElement('div');
+            uiControls.style.display = 'flex'; uiControls.style.gap = '2px';
+            
+            const bWp = document.createElement('button'); bWp.className='btn-npc b-sz'; bWp.innerText='W+';
+            bWp.onclick=(e)=>{ e.stopPropagation(); uiData.w*=1.1; container.style.width=uiData.w+'px'; salvarDados(); };
+            
+            const bWm = document.createElement('button'); bWm.className='btn-npc b-sz'; bWm.innerText='W-';
+            bWm.onclick=(e)=>{ e.stopPropagation(); uiData.w*=0.9; container.style.width=uiData.w+'px'; salvarDados(); };
+
+            const bHp = document.createElement('button'); bHp.className='btn-npc b-sz'; bHp.innerText='H+';
+            bHp.onclick=(e)=>{ e.stopPropagation(); uiData.h*=1.1; container.style.height=uiData.h+'px'; salvarDados(); };
+            
+            const bHm = document.createElement('button'); bHm.className='btn-npc b-sz'; bHm.innerText='H-';
+            bHm.onclick=(e)=>{ e.stopPropagation(); uiData.h*=0.9; container.style.height=uiData.h+'px'; salvarDados(); };
+
+            uiControls.append(bWp, bWm, bHp, bHm);
+            const btnDel = document.createElement('button');
+            btnDel.className = 'btn-npc b-del'; btnDel.innerText = 'DEL';
+            btnDel.onclick = () => { if(confirm("Remover Interface?")) { entData.interfaces.splice(uiIndex,1); salvarDados(); reloadMap(); }};
+
+            topBar.append(uiControls, btnDel);
+            container.appendChild(topBar);
+
+            const img = document.createElement('img');
+            img.className = 'interface-img';
+            img.src = getImgUrl(uiData.arquivo);
+            container.appendChild(img);
+
+            if(uiData.texts) {
+                uiData.texts.forEach((t) => {
+                    const area = document.createElement('div');
+                    area.className = 'ui-scroll-area';
+                    area.style.cssText = `left:${t.x}px; top:${t.y}px; width:${t.w}px; height:${t.h}px;`;
+                    const txt = document.createElement('div');
+                    txt.className = 'ui-texto'; txt.innerHTML = t.content; txt.contentEditable = isEditMode;
+                    txt.onblur = () => { t.content = txt.innerHTML; salvarDados(); };
+                    area.appendChild(txt); container.appendChild(area);
+                });
             }
+
+            if(isEditMode) {
+                container.onmousedown = (e) => {
+                    if(e.target.closest('.ui-scroll-area') || e.target.closest('.ui-top-bar')) return;
+                    e.stopPropagation(); let sx=e.clientX, sy=e.clientY, ox=uiData.x, oy=uiData.y;
+                    document.onmousemove=(m)=>{ uiData.x=ox+(m.clientX-sx)/scale; uiData.y=oy+(m.clientY-sy)/scale; container.style.left=uiData.x+"px"; container.style.top=uiData.y+"px"; };
+                    document.onmouseup=()=>{ document.onmousemove=null; salvarDados(); };
+                };
+            }
+            parent.appendChild(container);
         }
 
-        function reloadMap() { 
-            slotsCriados.clear(); 
-            world.innerHTML = ''; 
-            atualizarGradeInfinita(); 
-            update(); 
-        }
+        async function carregarCorrecoesDoSlot(slotId, slotElement) {
+            mapData.correcoes.filter(c => c.slotId === slotId && c.z === currentZ).forEach(data => {
+                const img = document.createElement('img');
+                img.src = getImgUrl(data.arquivo);
+                img.className = 'grid-livre' + (data.locked ? ' is-locked' : '');
+                img.style.cssText = `left:${data.x}px; top:${data.y}px; width:${data.w}px; height:${data.h}px;`;
+                
+                if(isEditMode) {
+                    img.onmousedown = (e) => {
+                        if(data.locked) return;
+                        e.stopPropagation(); let sx=e.clientX, sy=e.clientY, ox=data.x, oy=data.y;
+                        document.onmousemove=(m)=>{ data.x=ox+(m.clientX-sx)/scale; data.y=oy+(m.clientY-sy)/scale; img.style.left=data.x+"px"; img.style.top=data.y+"px"; };
+                        document.onmouseup=()=>{ document.onmousemove=null; salvarDados(); };
+                    };
+                }
+                slotElement.appendChild(img);
+            });
 
-        function atualizarGradeInfinita() {
-            const cX = Math.round(((-posX + window.innerWidth/2)/scale)/TILE_W);
-            const cY = Math.round(((-posY + window.innerHeight/2)/scale)/TILE_H);
-            for(let x = cX - 2; x <= cX + 2; x++) 
-                for(let y = cY - 2; y <= cY + 2; y++) 
-                    criarSlot(x, y);
+            mapData.entidades.filter(e => e.slotId === slotId && e.z === currentZ).forEach(data => {
+                const wrap = document.createElement('div'); 
+                wrap.className = `entidade-wrap type-${data.tipo || 'npc'}`;
+                wrap.style.cssText = `left:${data.x}px; top:${data.y}px; width:${data.w}px; height:${data.h}px;`;
+                const img = document.createElement('img');
+                img.src = getImgUrl(data.arquivo); img.className = 'entidade-img';
+                wrap.appendChild(img);
+
+                if(isEditMode) {
+                    wrap.onmousedown = (e) => {
+                        if(e.target.closest('.controles-npc') || e.target.closest('.interface-container')) return;
+                        e.stopPropagation(); let sx=e.clientX, sy=e.clientY, ox=data.x, oy=data.y;
+                        document.onmousemove=(m)=>{ data.x=ox+(m.clientX-sx)/scale; data.y=oy+(m.clientY-sy)/scale; wrap.style.left=data.x+"px"; wrap.style.top=data.y+"px"; };
+                        document.onmouseup=()=>{ document.onmousemove=null; salvarDados(); };
+                    };
+                }
+                img.onclick = () => wrap.querySelectorAll('.interface-container').forEach(ui => ui.classList.toggle('ativo'));
+                if(data.interfaces) data.interfaces.forEach((ui, idx) => renderizarInterface(wrap, data, ui, idx));
+                slotElement.appendChild(wrap);
+            });
         }
 
         function criarSlot(x, y) {
             const id = `${x}_${y}_${currentZ}`;
             if (slotsCriados.has(id)) return;
             slotsCriados.add(id);
-
             const div = document.createElement('div');
-            div.className = 'slot'; 
-            div.style.left = `${x * TILE_W}px`; 
-            div.style.top = `${y * TILE_H}px`;
-            
-            div.innerHTML = `
-                <div class="grid-overlay">${'<div></div>'.repeat(165)}</div>
-                <img class="map-base" src="${GITHUB_BASE_URL}/${id}.png" onerror="this.style.display='none'">
-            `;
-            
+            div.className = 'slot'; div.style.left = `${x * TILE_W}px`; div.style.top = `${y * TILE_H}px`;
+            div.innerHTML = `<div class="grid-overlay">${'<div></div>'.repeat(165)}</div><img class="map-base" src="${getImgUrl(id + '.png')}" onerror="this.style.display='none'">`;
             world.appendChild(div);
-            renderizarObjetosNoSlot(id, div);
+            carregarCorrecoesDoSlot(id, div);
         }
 
-        function renderizarObjetosNoSlot(slotId, div) {
-            // Renderizar Correções
-            mapData.correcoes.filter(c => c.slotId === slotId && c.z === currentZ).forEach(data => {
-                const img = document.createElement('img');
-                img.src = `${GITHUB_BASE_URL}/${data.arquivo}`;
-                img.className = 'grid-livre';
-                img.style.cssText = `left:${data.x}px; top:${data.y}px; width:${data.w}px; height:${data.h}px;`;
-                div.appendChild(img);
-            });
-
-            // Renderizar Entidades (NPCs, etc)
-            mapData.entidades.filter(e => e.slotId === slotId && e.z === currentZ).forEach(data => {
-                const wrap = document.createElement('div');
-                wrap.className = `entidade-wrap type-${data.tipo || 'npc'}`;
-                wrap.style.cssText = `left:${data.x}px; top:${data.y}px; width:${data.w}px; height:${data.h}px;`;
-                
-                const img = document.createElement('img');
-                img.src = `${GITHUB_BASE_URL}/${data.arquivo}`;
-                img.className = 'entidade-img';
-                img.onclick = () => wrap.querySelectorAll('.interface-container').forEach(ui => ui.classList.toggle('ativo'));
-                
-                wrap.appendChild(img);
-
-                if(data.interfaces) {
-                    data.interfaces.forEach(ui => {
-                        const uiDiv = document.createElement('div');
-                        uiDiv.className = 'interface-container';
-                        uiDiv.style.cssText = `left:${ui.x}px; top:${ui.y}px; width:${ui.w}px; height:${ui.h}px;`;
-                        
-                        const uiImg = document.createElement('img');
-                        uiImg.src = `${GITHUB_BASE_URL}/${ui.arquivo}`;
-                        uiImg.className = 'interface-img';
-                        
-                        uiDiv.appendChild(uiImg);
-
-                        if(ui.texts) {
-                            ui.texts.forEach(t => {
-                                const txt = document.createElement('div');
-                                txt.className = 'ui-texto';
-                                txt.style.cssText = `position:absolute; left:${t.x}px; top:${t.y}px; width:${t.w}px;`;
-                                txt.innerHTML = t.content;
-                                uiDiv.appendChild(txt);
-                            });
-                        }
-                        wrap.appendChild(uiDiv);
-                    });
-                }
-                div.appendChild(wrap);
-            });
+        function atualizarGradeInfinita() {
+            const cX = Math.round(((-posX + window.innerWidth/2)/scale)/TILE_W);
+            const cY = Math.round(((-posY + window.innerHeight/2)/scale)/TILE_H);
+            for(let x = cX - 2; x <= cX + 2; x++) for(let y = cY - 2; y <= cY + 2; y++) criarSlot(x, y);
         }
 
-        // Funções de Navegação (Mantidas do original)
-        function changeLayer(v) { 
-            currentZ = Math.max(0, Math.min(15, currentZ + v)); 
-            document.getElementById('layerDisplay').innerText = currentZ; 
-            reloadMap(); 
-        }
+        // --- CONTROLES DE VIEWPORT ---
+        function reloadMap() { slotsCriados.clear(); world.innerHTML = ''; atualizarGradeInfinita(); update(); }
+        function toggleGrid() { isGridVisible = !isGridVisible; world.classList.toggle('grid-hidden', !isGridVisible); }
+        function toggleEditMode() { isEditMode = !isEditMode; world.classList.toggle('view-mode', !isEditMode); reloadMap(); }
+        function changeLayer(v) { currentZ = Math.max(0, Math.min(15, currentZ + v)); document.getElementById('layerDisplay').innerText = currentZ; reloadMap(); }
+        function toggleVisibility(tipo, isVisible) { world.classList.toggle('hide-' + tipo, !isVisible); }
 
-        function toggleGrid() { 
-            isGridVisible = !isGridVisible; 
-            world.classList.toggle('grid-hidden', !isGridVisible); 
-        }
-
-        // Sistema de Zoom e Drag (Mantido)
         let dragM = false, sxM, syM;
-        viewport.onmousedown = (e) => { dragM = true; sxM = e.clientX - posX; syM = e.clientY - posY; };
+        viewport.onmousedown = (e) => { if(e.target === viewport || e.target.className.includes('slot')) { dragM = true; sxM = e.clientX - posX; syM = e.clientY - posY; }};
         window.onmousemove = (e) => { if(dragM) { posX = e.clientX - sxM; posY = e.clientY - syM; update(); atualizarGradeInfinita(); }};
         window.onmouseup = () => dragM = false;
-        viewport.onwheel = (e) => { 
-            e.preventDefault(); 
-            const wx = (e.clientX - posX) / scale; 
-            const wy = (e.clientY - posY) / scale; 
-            scale *= e.deltaY < 0 ? 1.1 : 0.9; 
-            posX = e.clientX - wx * scale; 
-            posY = e.clientY - wy * scale; 
-            update(); 
-            atualizarGradeInfinita(); 
-        };
-        
+        viewport.onwheel = (e) => { e.preventDefault(); const wx = (e.clientX - posX) / scale; const wy = (e.clientY - posY) / scale; scale *= e.deltaY < 0 ? 1.1 : 0.9; posX = e.clientX - wx * scale; posY = e.clientY - wy * scale; update(); atualizarGradeInfinita(); };
         function update() { world.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`; }
-
-        // Inicialização
-        carregarDadosIniciais();
+        
+        inicializar();
     </script>
 </body>
 </html>
