@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Tibia Map Editor - Restored ScrollBox</title>
+    <title>Tibia Map Editor - Hybrid URL/Local</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; color: white; }
         #viewport { width: 100vw; height: 100vh; cursor: grab; position: relative; }
@@ -51,40 +51,27 @@
         #filter-box { margin-top: 10px; background: rgba(0,0,0,0.8); border: 1px solid #444; padding: 10px; border-radius: 4px; font-size: 12px; }
         .filter-item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; cursor: pointer; }
 
-        /* --- INTERFACE E CAIXA DE TEXTO (CORRIGIDO) --- */
         .interface-container { position: absolute; z-index: 200; display: none; pointer-events: auto; }
-        
-        /* A CLASSE ABAIXO FAZ APARECER E SUMIR */
         .interface-container.ativo { display: block; }
-        
         .interface-img { width: 100%; height: 100%; display: block; image-rendering: pixelated; pointer-events: none; }
 
         .ui-top-bar { position: absolute; top: -35px; left: 0; width: 100%; display: none; background: rgba(0,0,0,0.95); border: 1px solid #444; padding: 5px; border-radius: 4px; z-index: 1000; align-items: center; justify-content: space-between; }
         .editavel-box .ui-top-bar { display: flex; }
         .color-dot { width: 18px; height: 18px; border-radius: 50%; cursor: pointer; border: 1px solid #fff; margin-right: 5px; }
 
-        /* --- CORREÇÃO DO SCROLL E VISUAL DE CAIXA --- */
         .ui-scroll-area { 
-            position: absolute; 
-            overflow-y: auto; /* Traz o scroll de volta */
-            overflow-x: hidden;
-            background: rgba(0, 0, 0, 0.85); /* Fundo escuro sólido */
-            border: 1px solid #555; /* Borda da caixa */
-            padding: 5px;
+            position: absolute; overflow-y: auto; overflow-x: hidden;
+            background: rgba(0, 0, 0, 0.85); border: 1px solid #555; padding: 5px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.5);
         }
-        /* Estilização da barra de rolagem */
         .ui-scroll-area::-webkit-scrollbar { width: 6px; }
         .ui-scroll-area::-webkit-scrollbar-track { background: #222; }
         .ui-scroll-area::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
-        .ui-scroll-area::-webkit-scrollbar-thumb:hover { background: #777; }
 
         .editavel-box .ui-scroll-area { border: 1px dashed rgba(255,255,255,0.5); }
-        
         .controles-texto { position: absolute; top: -25px; left: 0; display: none; gap: 2px; background: rgba(0,0,0,0.8); padding: 2px; border-radius: 3px; z-index: 10; }
         .editavel-box .controles-texto { display: flex; }
         .handle-move-text { cursor: move; background: #555; color: white; padding: 2px 5px; font-size: 10px; border-radius: 2px; }
-
         .ui-texto { color: #fff; font-size: 14px; text-shadow: 1px 1px 0px #000; white-space: pre-wrap; outline: none; width: 100%; min-height: 100%; }
 
         .panel { position: fixed; background: rgba(0,0,0,0.9); padding: 12px; border-radius: 8px; border: 1px solid #333; z-index: 1000; }
@@ -155,12 +142,31 @@
             } catch(e) { mapData = { correcoes: [], entidades: [] }; }
         }
 
-        // --- UTILITÁRIOS ---
-        function getImageDimensions(file) {
-            return new Promise((resolve) => {
+        // --- CARREGADOR DE IMAGEM INTELIGENTE (URL OU ARQUIVO) ---
+        async function carregarSrcImagem(nomeArquivo, imgElement) {
+            // Verifica se é URL (http) ou Base64 (data:)
+            if (nomeArquivo.includes('http') || nomeArquivo.includes('data:') || nomeArquivo.includes('https')) {
+                imgElement.src = nomeArquivo;
+            } else {
+                // Tenta carregar do sistema de arquivos local
+                try {
+                    if(!directoryHandle) return;
+                    const f = await (await directoryHandle.getFileHandle(nomeArquivo)).getFile();
+                    imgElement.src = URL.createObjectURL(f);
+                } catch(e) {
+                    console.warn("Arquivo local não encontrado:", nomeArquivo);
+                    imgElement.alt = "Arquivo Missing";
+                }
+            }
+        }
+
+        function getImageDimensions(source, isFile = true) {
+            return new Promise((resolve, reject) => {
                 const img = new Image();
                 img.onload = () => resolve({ w: img.width, h: img.height });
-                img.src = URL.createObjectURL(file);
+                img.onerror = reject;
+                if(isFile) img.src = URL.createObjectURL(source);
+                else img.src = source;
             });
         }
 
@@ -187,11 +193,10 @@
             });
         }
 
-        // --- RENDERIZAÇÃO DE UI E TEXTOS ---
+        // --- RENDERIZAÇÃO ---
         function renderizarInterface(parent, entData, uiData, uiIndex) {
             const container = document.createElement('div');
             container.className = 'interface-container';
-            // Se estiver editando, marcamos para aplicar estilos extras
             if (isEditMode) container.classList.add('editavel-box');
             container.style.cssText = `left:${uiData.x}px; top:${uiData.y}px; width:${uiData.w}px; height:${uiData.h}px;`;
 
@@ -210,20 +215,18 @@
                 dot.onmousedown = (e) => { e.preventDefault(); if(activeTextEl) document.execCommand('foreColor', false, cor); };
                 colors.appendChild(dot);
             });
-
             topBar.append(colors, btnDel);
             container.appendChild(topBar);
 
             const img = document.createElement('img');
             img.className = 'interface-img';
-            directoryHandle.getFileHandle(uiData.arquivo).then(h => h.getFile()).then(f => { img.src = URL.createObjectURL(f); });
+            carregarSrcImagem(uiData.arquivo, img); // USA O CARREGADOR HÍBRIDO
             container.appendChild(img);
 
             if(uiData.texts) {
                 uiData.texts.forEach((t) => {
                     const area = document.createElement('div');
                     area.className = 'ui-scroll-area';
-                    // Aplicar coordenadas e tamanho
                     area.style.cssText = `left:${t.x}px; top:${t.y}px; width:${t.w}px; height:${t.h}px;`;
                     
                     const ctrl = document.createElement('div');
@@ -259,13 +262,11 @@
             parent.appendChild(container);
         }
 
-        // --- CORE DO EDITOR ---
         async function carregarConteudoSlot(slotId, slotElement) {
             // Renderizar Correções
             mapData.correcoes.filter(c => c.slotId === slotId && c.z === currentZ).forEach(async data => {
                 const img = document.createElement('img');
-                const f = await (await directoryHandle.getFileHandle(data.arquivo)).getFile();
-                img.src = URL.createObjectURL(f); 
+                await carregarSrcImagem(data.arquivo, img); // USA O CARREGADOR HÍBRIDO
                 img.className = 'grid-livre' + (data.locked ? ' is-locked' : '');
                 img.style.cssText = `left:${data.x}px; top:${data.y}px; width:${data.w}px; height:${data.h}px;`;
                 
@@ -296,15 +297,15 @@
                 slotElement.appendChild(img);
             });
 
-            // Renderizar Entidades (NPCs, Mobs, etc)
+            // Renderizar Entidades
             mapData.entidades.filter(e => e.slotId === slotId && e.z === currentZ).forEach(async data => {
                 const wrap = document.createElement('div'); 
                 wrap.className = `entidade-wrap type-${data.tipo || 'npc'}`;
                 wrap.style.cssText = `left:${data.x}px; top:${data.y}px; width:${data.w}px; height:${data.h}px;`;
                 
                 const img = document.createElement('img');
-                const f = await (await directoryHandle.getFileHandle(data.arquivo)).getFile();
-                img.src = URL.createObjectURL(f); img.className = 'entidade-img';
+                await carregarSrcImagem(data.arquivo, img); // USA O CARREGADOR HÍBRIDO
+                img.className = 'entidade-img';
                 
                 if(isEditMode) {
                     const cnt = document.createElement('div'); cnt.className = 'controles-npc';
@@ -314,7 +315,6 @@
                     bTX.onclick=()=>{ if(data.interfaces.length) adicionarTextoUI(data.interfaces[0]); else alert("Crie UI!"); };
                     const bDel = document.createElement('button'); bDel.className='btn-npc b-del'; bDel.innerText="DEL";
                     bDel.onclick=()=>{ if(confirm("Deletar?")){mapData.entidades=mapData.entidades.filter(en=>en.id!==data.id); salvarDados(); reloadMap();}};
-                    
                     cnt.append(bUI, bTX, bDel);
                     wrap.appendChild(cnt);
 
@@ -325,48 +325,101 @@
                         document.onmouseup=()=>{ document.onmousemove=null; salvarDados(); };
                     };
                 }
-
-                // --- LÓGICA DE CLIQUE (APARECER / SUMIR) ---
-                img.onclick = () => {
-                    // Seleciona todas as interfaces dentro deste NPC/Item e inverte a classe 'ativo'
-                    // Se tiver 'ativo', remove (some). Se não tiver, adiciona (aparece).
-                    wrap.querySelectorAll('.interface-container').forEach(ui => ui.classList.toggle('ativo'));
-                };
-
+                img.onclick = () => { wrap.querySelectorAll('.interface-container').forEach(ui => ui.classList.toggle('ativo')); };
                 wrap.appendChild(img);
                 if(data.interfaces) data.interfaces.forEach((ui, idx) => renderizarInterface(wrap, data, ui, idx));
                 slotElement.appendChild(wrap);
             });
         }
 
-        // --- ADIÇÃO DE NOVOS ELEMENTOS ---
+        // --- ADIÇÃO COM ESCOLHA (URL vs ARQUIVO) ---
         async function adicionarGridLivre() {
-            const [h] = await window.showOpenFilePicker(); const f = await h.getFile();
-            const dim = await getImageDimensions(f);
-            const nome = `fix_${Date.now()}.png`;
-            const nh = await directoryHandle.getFileHandle(nome, {create:true});
-            const w = await nh.createWritable(); await w.write(f); await w.close();
+            // Pergunta o modo
+            const modo = confirm("Clique [OK] para Arquivo Local (Computador)\nClique [CANCELAR] para URL (Link da Internet)");
+            
+            let nomeFinal = "";
+            let dim = {w:0, h:0};
+
+            if(modo) {
+                // LOCAL
+                try {
+                    const [h] = await window.showOpenFilePicker(); const f = await h.getFile();
+                    dim = await getImageDimensions(f, true);
+                    const nome = `fix_${Date.now()}.png`;
+                    const nh = await directoryHandle.getFileHandle(nome, {create:true});
+                    const w = await nh.createWritable(); await w.write(f); await w.close();
+                    nomeFinal = nome;
+                } catch(e) { return; }
+            } else {
+                // URL
+                const url = prompt("Cole o Link (URL) da imagem:");
+                if(!url) return;
+                try {
+                    dim = await getImageDimensions(url, false);
+                    nomeFinal = url;
+                } catch(e) { alert("Erro ao carregar URL (Verifique se o link é direto de imagem)."); return; }
+            }
+
             const cX = Math.round(((-posX + window.innerWidth/2)/scale)/TILE_W);
             const cY = Math.round(((-posY + window.innerHeight/2)/scale)/TILE_H);
-            mapData.correcoes.push({ id: Date.now(), arquivo: nome, x: 500, y: 350, w: dim.w, h: dim.h, z: currentZ, slotId: `${cX}_${cY}_${currentZ}`, tag: "", locked: false });
+            mapData.correcoes.push({ id: Date.now(), arquivo: nomeFinal, x: 500, y: 350, w: dim.w, h: dim.h, z: currentZ, slotId: `${cX}_${cY}_${currentZ}`, tag: "", locked: false });
             await salvarDados(); reloadMap();
         }
 
         async function adicionarEntidade(tipo) {
-            const [h] = await window.showOpenFilePicker(); const f = await h.getFile();
-            const dim = await getImageDimensions(f);
-            const nome = `${tipo}_${Date.now()}.png`;
-            const nh = await directoryHandle.getFileHandle(nome, {create:true});
-            const w = await nh.createWritable(); await w.write(f); await w.close();
+            // Pergunta o modo
+            const modo = confirm("Clique [OK] para Arquivo Local (Computador)\nClique [CANCELAR] para URL (Link da Internet)");
+
+            let nomeFinal = "";
+            let dim = {w:0, h:0};
+
+            if(modo) {
+                // LOCAL
+                try {
+                    const [h] = await window.showOpenFilePicker(); const f = await h.getFile();
+                    dim = await getImageDimensions(f, true);
+                    const nome = `${tipo}_${Date.now()}.png`;
+                    const nh = await directoryHandle.getFileHandle(nome, {create:true});
+                    const w = await nh.createWritable(); await w.write(f); await w.close();
+                    nomeFinal = nome;
+                } catch(e) { return; }
+            } else {
+                // URL
+                const url = prompt("Cole o Link (URL) da imagem:");
+                if(!url) return;
+                try {
+                    dim = await getImageDimensions(url, false);
+                    nomeFinal = url;
+                } catch(e) { alert("Erro ao carregar URL. Tente outro link."); return; }
+            }
+
             const cX = Math.round(((-posX + window.innerWidth/2)/scale)/TILE_W);
             const cY = Math.round(((-posY + window.innerHeight/2)/scale)/TILE_H);
-            mapData.entidades.push({ id: tipo+"_"+Date.now(), tipo: tipo, arquivo: nome, x: 500, y: 350, w: dim.w, h: dim.h, z: currentZ, slotId: `${cX}_${cY}_${currentZ}`, interfaces: [], tag: "" });
+            mapData.entidades.push({ id: tipo+"_"+Date.now(), tipo: tipo, arquivo: nomeFinal, x: 500, y: 350, w: dim.w, h: dim.h, z: currentZ, slotId: `${cX}_${cY}_${currentZ}`, interfaces: [], tag: "" });
             await salvarDados(); reloadMap();
         }
 
         async function adicionarInterface(entId) {
             const ent = mapData.entidades.find(e => e.id === entId);
-            ent.interfaces.push({ id: "ui_"+Date.now(), arquivo: "default_ui.png", x: 50, y: -150, w: 200, h: 150, texts: [] });
+            // Interfaces também podem ser URL
+            const modo = confirm("Imagem da UI:\n[OK] = Arquivo Local\n[CANCELAR] = URL");
+            let nomeFinal = "default_ui.png"; // Fallback
+
+            if(modo) {
+                // Se o usuário quiser escolher um arquivo específico para UI
+                try {
+                    const [h] = await window.showOpenFilePicker(); const f = await h.getFile();
+                    const nome = `ui_${Date.now()}.png`;
+                    const nh = await directoryHandle.getFileHandle(nome, {create:true});
+                    const w = await nh.createWritable(); await w.write(f); await w.close();
+                    nomeFinal = nome;
+                } catch(e) { return; }
+            } else {
+                const url = prompt("URL da imagem da Interface:");
+                if(url) nomeFinal = url;
+            }
+
+            ent.interfaces.push({ id: "ui_"+Date.now(), arquivo: nomeFinal, x: 50, y: -150, w: 200, h: 150, texts: [] });
             await salvarDados(); reloadMap();
         }
 
@@ -375,7 +428,7 @@
             await salvarDados(); reloadMap();
         }
 
-        // --- CONTROLE DE TELA E GRADES ---
+        // --- CONTROLE DE TELA ---
         function atualizarGradeInfinita() {
             if(!directoryHandle) return;
             const cX = Math.round(((-posX + window.innerWidth/2)/scale)/TILE_W);
@@ -406,7 +459,7 @@
             reloadMap();
         }
 
-        // --- EVENTOS DE INTERAÇÃO ---
+        // --- STARTUP ---
         document.getElementById('btnHandle').onclick = async () => {
             directoryHandle = await window.showDirectoryPicker();
             await carregarDados();
