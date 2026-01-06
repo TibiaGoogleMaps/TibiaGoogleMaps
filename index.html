@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Tibia Map Editor - GitHub Pro</title>
+    <title>Tibia Map Editor - Professional</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; color: white; }
         #viewport { width: 100vw; height: 100vh; cursor: grab; position: relative; }
@@ -16,50 +16,61 @@
             display: grid; grid-template-columns: repeat(15, 1fr); grid-template-rows: repeat(11, 1fr);
             pointer-events: none; z-index: 2;
         }
-        
         .grid-overlay div { border: 0.5px solid rgba(255, 255, 255, 0.05); } 
         .grid-green .grid-overlay div { border: 0.5px solid rgba(0, 255, 0, 0.4); }
         .grid-red .grid-overlay div { border: 0.5px solid rgba(255, 0, 0, 0.4); }
         .grid-hidden .grid-overlay { display: none; }
 
         .map-base { width: 100%; height: 100%; position: absolute; z-index: 1; image-rendering: pixelated; pointer-events: none; }
+        .btn-central { position: absolute; z-index: 5; width: 80px; height: 80px; border-radius: 50%; border: 2px dashed #444; background: none; color: #444; font-size: 40px; cursor: pointer; }
         
         .grid-livre { position: absolute; z-index: 50; image-rendering: pixelated; user-select: none; cursor: move; border: 1px solid transparent; }
         .grid-livre.is-locked { cursor: default; pointer-events: none; }
-        .edit-mode-active .grid-livre:hover:not(.is-locked) { border: 1px dashed yellow; }
+        .editavel-box .grid-livre:hover:not(.is-locked) { border: 1px dashed yellow; }
         
         .entidade-wrap { position: absolute; z-index: 60; }
         .entidade-img { width: 100%; height: 100%; display: block; image-rendering: pixelated; cursor: pointer; }
         
-        /* Filtros */
-        .hide-npc .type-npc, .hide-item .type-item, .hide-mob .type-mob, .hide-balao .type-balao { display: none !important; }
-
-        /* Painéis de Edição (Escondidos por padrão) */
-        .controles-npc, .ui-top-bar, .controles-texto { display: none; position: absolute; z-index: 110; background: rgba(0,0,0,0.8); padding: 3px; border-radius: 5px; }
-        .edit-mode-active .controles-npc, .edit-mode-active .ui-top-bar, .edit-mode-active .controles-texto { display: flex; gap: 4px; }
-
+        /* Controles de edição */
+        .controles-npc { position: absolute; top: -35px; left: 0; display: flex; gap: 4px; z-index: 110; background: rgba(0,0,0,0.8); padding: 4px; border-radius: 5px; }
         .btn-npc { border: none; padding: 4px 6px; border-radius: 3px; cursor: pointer; font-weight: bold; font-size: 11px; color: #000; background: #eee; }
-        .b-del { background: #ff4444; color: #fff; }
+        .b-ui { background: #00e1ff; }
+        .b-tx { background: #ff00ff; color: #fff; }
         .b-sz { background: #fff; }
+        .b-del { background: #ff4444; color: #fff; }
+        .b-tag { background: #ffea00; color: #000; }
+        .b-lock { background: #ffd700; color: #000; }
 
-        #search-container { position: fixed; top: 15px; right: 15px; width: 250px; z-index: 2000; }
-        #map-search { width: 100%; padding: 10px; background: rgba(0,0,0,0.8); border: 1px solid #444; color: #fff; border-radius: 4px; outline: none; }
-        #search-results { background: rgba(20,20,20,0.95); max-height: 200px; overflow-y: auto; }
-        
-        .interface-container { position: absolute; z-index: 200; pointer-events: auto; }
+        /* Interface e Texto */
+        .interface-container { position: absolute; z-index: 200; display: none; pointer-events: auto; }
+        .interface-container.ativo { display: block; }
         .interface-img { width: 100%; height: 100%; display: block; image-rendering: pixelated; pointer-events: none; }
-        .ui-texto { color: #fff; font-size: 14px; text-shadow: 1px 1px 0px #000; white-space: pre-wrap; outline: none; width: 100%; height: 100%; }
+        
+        .ui-top-bar { position: absolute; top: -35px; left: 0; width: 100%; display: none; background: rgba(0,0,0,0.9); border: 1px solid #444; padding: 5px; border-radius: 4px; z-index: 1000; align-items: center; justify-content: space-between; }
+        .editavel-box .ui-top-bar { display: flex; }
 
+        .ui-scroll-area { position: absolute; overflow: visible; background: rgba(255,255,255,0.05); }
+        .editavel-box .ui-scroll-area { border: 1px dashed rgba(255,255,255,0.3); }
+        .controles-texto { position: absolute; top: -25px; left: 0; display: none; gap: 2px; background: rgba(0,0,0,0.8); padding: 2px; border-radius: 3px; z-index: 10; }
+        .editavel-box .controles-texto { display: flex; }
+        .ui-texto { color: #fff; font-size: 14px; text-shadow: 1px 1px 0px #000; white-space: pre-wrap; outline: none; width: 100%; height: 100%; }
+        .color-dot { width: 15px; height: 15px; border-radius: 50%; cursor: pointer; border: 1px solid #fff; margin: 0 2px; }
+
+        /* Painéis Fixos */
         .panel { position: fixed; background: rgba(0,0,0,0.9); padding: 12px; border-radius: 8px; border: 1px solid #333; z-index: 1000; }
         .left { top: 15px; left: 15px; width: 220px; }
         .right { top: 50%; right: 20px; transform: translateY(-50%); text-align: center; }
-        .btn-ui-main { width: 100%; padding: 8px; margin: 4px 0; cursor: pointer; background: #333; color: #fff; border: 1px solid #444; border-radius: 4px; font-size: 12px; }
         
-        /* Quando o modo edição está OFF, o world não aceita cliques nos itens de edição */
-        .edit-mode-off .entidade-img, .edit-mode-off .grid-livre { pointer-events: none; }
+        #search-container { position: fixed; top: 15px; right: 15px; width: 250px; z-index: 2000; }
+        #map-search { width: 100%; padding: 10px; background: rgba(0,0,0,0.9); border: 1px solid #444; color: #fff; border-radius: 4px; }
+        #search-results { background: rgba(20,20,20,0.95); max-height: 200px; overflow-y: auto; }
+        .search-item { padding: 8px; border-bottom: 1px solid #333; cursor: pointer; font-size: 12px; }
+        .search-item:hover { background: #00e1ff; color: #000; }
+
+        .btn-ui-main { width: 100%; padding: 8px; margin: 4px 0; cursor: pointer; background: #333; color: #fff; border: 1px solid #444; border-radius: 4px; }
     </style>
 </head>
-<body class="edit-mode-off">
+<body>
 
     <div id="search-container">
         <input type="text" id="map-search" placeholder="🔍 Buscar Tag..." oninput="buscarTags()">
@@ -67,21 +78,21 @@
     </div>
 
     <div class="panel left">
-        <strong>Tibia Editor Pro</strong><br>
-        <small id="status" style="color: #0f0;">Pasta: mapcontainer</small><br><br>
-        
-        <button class="btn-ui-main" style="background: #222;" onclick="toggleEditMode()" id="btnEdit">Modo Edição: OFF</button>
-        <button class="btn-ui-main b-save" onclick="baixarJSON()">💾 Baixar map_data.json</button>
-        
+        <strong>Tibia Editor Pro</strong><br><br>
+        <button class="btn-ui-main" id="btnHandle" style="background:#0f0; color:#000;">Conectar Pasta</button>
+        <button class="btn-ui-main" onclick="adicionarGridLivre()">+ Corrigir Mapa</button>
+        <button class="btn-ui-main" onclick="adicionarEntidade('npc')" style="background:#ffcc00; color:#000;">+ NPC</button>
+        <button class="btn-ui-main" onclick="adicionarEntidade('balao')" style="background:#ff00ff; color:#fff;">+ Balão Texto</button>
         <hr style="border:0; border-top:1px solid #333; margin:10px 0;">
-        <button class="btn-ui-main" onclick="toggleGrid()">Grade: ON/OFF</button>
-        <button class="btn-ui-main" onclick="changeLayer(-1)">Subir Andar (▲)</button>
-        <button class="btn-ui-main" onclick="changeLayer(1)">Descer Andar (▼)</button>
+        <button class="btn-ui-main" onclick="toggleEditMode()">Modo Edição: ON/OFF</button>
+        <div id="status" style="font-size:11px; color: #888; margin-top:5px;">Offline</div>
     </div>
 
     <div class="panel right">
         <small>Z-AXIS</small><br>
-        <div style="font-size:24px; color:#0f0;" id="layerDisplay">7</div>
+        <button class="btn-ui-main" onclick="changeLayer(-1)">▲ Subir</button>
+        <div style="font-size:24px; color:#0f0; margin:10px 0;" id="layerDisplay">7</div>
+        <button class="btn-ui-main" onclick="changeLayer(1)">▼ Descer</button>
     </div>
 
     <div id="viewport"><div id="world"></div></div>
@@ -90,132 +101,193 @@
         const world = document.getElementById('world');
         const viewport = document.getElementById('viewport');
         const TILE_W = 1078, TILE_H = 790;
-        const PASTA_MAPA = "mapcontainer"; // Conexão direta com sua pasta
-
-        let scale = 0.15, posX = window.innerWidth/2, posY = window.innerHeight/2;
-        let currentZ = 7, isGridVisible = true, isEditMode = false;
-        let mapData = { correcoes: [], entidades: [] };
+        let directoryHandle = null, scale = 0.15, posX = window.innerWidth/2, posY = window.innerHeight/2;
+        let currentZ = 7, isEditMode = true, mapData = { correcoes: [], entidades: [] };
         const slotsCriados = new Set();
+        let activeTextEl = null;
 
-        window.onload = async () => {
-            await carregarDadosGitHub();
-            reloadMap();
-        };
-
-        async function carregarDadosGitHub() {
-            try {
-                const r = await fetch(`${PASTA_MAPA}/map_data.json`);
-                if(r.ok) mapData = await r.json();
-            } catch(e) { console.error("Erro ao carregar JSON", e); }
+        // --- FUNÇÕES DE BUSCA ---
+        function buscarTags() {
+            const termo = document.getElementById('map-search').value.toLowerCase();
+            const resDiv = document.getElementById('search-results');
+            resDiv.innerHTML = '';
+            if(!termo) return;
+            const lista = [...mapData.entidades, ...mapData.correcoes].filter(obj => obj.tag && obj.tag.toLowerCase().includes(termo));
+            lista.forEach(obj => {
+                const div = document.createElement('div');
+                div.className = 'search-item';
+                div.innerText = `[Z${obj.z}] ${obj.tag}`;
+                div.onclick = () => {
+                    currentZ = obj.z; document.getElementById('layerDisplay').innerText = currentZ;
+                    const [sx, sy] = obj.slotId.split('_').map(Number);
+                    posX = (window.innerWidth / 2) - (((sx * TILE_W) + obj.x) * scale);
+                    posY = (window.innerHeight / 2) - (((sy * TILE_H) + obj.y) * scale);
+                    reloadMap(); resDiv.innerHTML = '';
+                };
+                resDiv.appendChild(div);
+            });
         }
 
-        function reloadMap() { 
-            slotsCriados.clear(); 
-            world.innerHTML = ''; 
-            atualizarGradeInfinita(); 
-            update(); 
+        // --- RENDERIZAÇÃO DE UI E TEXTO ---
+        function renderizarInterface(parent, entData, uiData, uiIndex) {
+            const container = document.createElement('div');
+            container.className = 'interface-container';
+            if (isEditMode) container.classList.add('editavel-box');
+            container.style.cssText = `left:${uiData.x}px; top:${uiData.y}px; width:${uiData.w}px; height:${uiData.h}px;`;
+
+            const topBar = document.createElement('div');
+            topBar.className = 'ui-top-bar';
+            
+            const colors = document.createElement('div'); colors.style.display = 'flex';
+            ['#fff', '#0ef', '#ff0', '#f00', '#0f0'].forEach(cor => {
+                const dot = document.createElement('div'); dot.className = 'color-dot'; dot.style.background = cor;
+                dot.onmousedown = (e) => { e.preventDefault(); if(activeTextEl) document.execCommand('foreColor', false, cor); };
+                colors.appendChild(dot);
+            });
+
+            const btnDel = document.createElement('button'); btnDel.className = 'btn-npc b-del'; btnDel.innerText = 'DEL UI';
+            btnDel.onclick = () => { entData.interfaces.splice(uiIndex,1); salvarDados(); reloadMap(); };
+
+            topBar.append(colors, btnDel);
+            container.appendChild(topBar);
+
+            const img = document.createElement('img');
+            img.className = 'interface-img';
+            directoryHandle.getFileHandle(uiData.arquivo).then(h => h.getFile()).then(f => { img.src = URL.createObjectURL(f); });
+            container.appendChild(img);
+
+            if(uiData.texts) {
+                uiData.texts.forEach((t) => {
+                    const area = document.createElement('div');
+                    area.className = 'ui-scroll-area';
+                    area.style.cssText = `left:${t.x}px; top:${t.y}px; width:${t.w}px; height:${t.h}px;`;
+                    
+                    const ctrlT = document.createElement('div'); ctrlT.className = 'controles-texto';
+                    const handle = document.createElement('div'); handle.innerText = '✛'; handle.style.cursor='move';
+                    handle.onmousedown = (e) => {
+                        e.stopPropagation(); let sx=e.clientX, sy=e.clientY, ox=t.x, oy=t.y;
+                        document.onmousemove=(m)=>{ t.x=ox+(m.clientX-sx)/scale; t.y=oy+(m.clientY-sy)/scale; area.style.left=t.x+"px"; area.style.top=t.y+"px"; };
+                        document.onmouseup=()=>{ document.onmousemove=null; salvarDados(); };
+                    };
+                    ctrlT.appendChild(handle); area.appendChild(ctrlT);
+
+                    const txt = document.createElement('div');
+                    txt.className = 'ui-texto'; txt.innerHTML = t.content; txt.contentEditable = isEditMode;
+                    txt.onfocus = () => activeTextEl = txt;
+                    txt.onblur = () => { t.content = txt.innerHTML; salvarDados(); };
+                    area.appendChild(txt); container.appendChild(area);
+                });
+            }
+
+            if(isEditMode) {
+                container.onmousedown = (e) => {
+                    if(e.target.closest('.ui-scroll-area')) return;
+                    e.stopPropagation(); let sx=e.clientX, sy=e.clientY, ox=uiData.x, oy=uiData.y;
+                    document.onmousemove=(m)=>{ uiData.x=ox+(m.clientX-sx)/scale; uiData.y=oy+(m.clientY-sy)/scale; container.style.left=uiData.x+"px"; container.style.top=uiData.y+"px"; };
+                    document.onmouseup=()=>{ document.onmousemove=null; salvarDados(); };
+                };
+            }
+            parent.appendChild(container);
         }
 
-        function atualizarGradeInfinita() {
+        // --- SISTEMA DE ARQUIVOS E MAPA ---
+        async function salvarDados() {
+            if(!directoryHandle) return;
+            const fh = await directoryHandle.getFileHandle('map_data.json', {create:true});
+            const w = await fh.createWritable(); await w.write(JSON.stringify(mapData)); await w.close();
+        }
+
+        async function adicionarEntidade(tipo) {
+            const [h] = await window.showOpenFilePicker(); const f = await h.getFile();
+            const nome = `${tipo}_${Date.now()}.png`;
+            const nh = await directoryHandle.getFileHandle(nome, {create:true});
+            const w = await nh.createWritable(); await w.write(f); await w.close();
             const cX = Math.round(((-posX + window.innerWidth/2)/scale)/TILE_W);
             const cY = Math.round(((-posY + window.innerHeight/2)/scale)/TILE_H);
-            for(let x = cX - 2; x <= cX + 2; x++) 
-                for(let y = cY - 2; y <= cY + 2; y++) criarSlot(x, y);
+            mapData.entidades.push({ id: Date.now(), tipo: tipo, arquivo: nome, x: 500, y: 350, w: 100, h: 100, z: currentZ, slotId: `${cX}_${cY}_${currentZ}`, interfaces: [], tag: "" });
+            await salvarDados(); reloadMap(); 
         }
 
-        function criarSlot(x, y) {
+        async function carregarSlot(x, y) {
             const id = `${x}_${y}_${currentZ}`;
             if (slotsCriados.has(id)) return;
             slotsCriados.add(id);
-
             const div = document.createElement('div');
-            div.className = 'slot'; 
-            div.style.left = `${x * TILE_W}px`; 
-            div.style.top = `${y * TILE_H}px`;
-            
-            const imgPath = `${PASTA_MAPA}/${id}.png`;
-            div.innerHTML = `
-                <div class="grid-overlay">${'<div></div>'.repeat(165)}</div>
-                <img class="map-base" src="${imgPath}" onerror="this.style.display='none'">
-            `;
-            
+            div.className = 'slot'; div.style.left = `${x * TILE_W}px`; div.style.top = `${y * TILE_H}px`;
+            div.innerHTML = `<button class="btn-central" onclick="vincularImagem(${x},${y})">+</button>`;
             world.appendChild(div);
-            renderizarConteudo(id, div);
-        }
 
-        function renderizarConteudo(slotId, divPai) {
-            // Correções
-            mapData.correcoes.filter(c => c.slotId === slotId && c.z === currentZ).forEach(data => {
-                const img = document.createElement('img');
-                img.src = `${PASTA_MAPA}/${data.arquivo}`;
-                img.className = 'grid-livre' + (data.locked ? ' is-locked' : '');
-                img.style.cssText = `left:${data.x}px; top:${data.y}px; width:${data.w}px; height:${data.h}px;`;
-                divPai.appendChild(img);
-            });
+            try {
+                const f = await (await directoryHandle.getFileHandle(`${id}.png`)).getFile();
+                div.innerHTML = `<img src="${URL.createObjectURL(f)}" class="map-base">`;
+            } catch(e) {}
 
-            // Entidades
-            mapData.entidades.filter(e => e.slotId === slotId && e.z === currentZ).forEach(data => {
-                const wrap = document.createElement('div'); 
-                wrap.className = `entidade-wrap type-${data.tipo || 'npc'}`;
+            // Renderiza Entidades (NPCs, etc)
+            mapData.entidades.filter(e => e.slotId === id).forEach(async data => {
+                const wrap = document.createElement('div');
+                wrap.className = 'entidade-wrap';
                 wrap.style.cssText = `left:${data.x}px; top:${data.y}px; width:${data.w}px; height:${data.h}px;`;
                 
                 const img = document.createElement('img');
-                img.src = `${PASTA_MAPA}/${data.arquivo}`;
-                img.className = 'entidade-img';
+                const f = await (await directoryHandle.getFileHandle(data.arquivo)).getFile();
+                img.src = URL.createObjectURL(f); img.className = 'entidade-img';
+                img.onclick = () => wrap.querySelectorAll('.interface-container').forEach(ui => ui.classList.toggle('ativo'));
                 
-                wrap.appendChild(img);
-                divPai.appendChild(wrap);
+                if(isEditMode) {
+                    const cnt = document.createElement('div'); cnt.className = 'controles-npc';
+                    const bUI = document.createElement('button'); bUI.className='btn-npc b-ui'; bUI.innerText="UI+";
+                    bUI.onclick = async () => {
+                        const [h] = await window.showOpenFilePicker();
+                        const nh = await directoryHandle.getFileHandle("ui_default.png", {create:true});
+                        const w = await nh.createWritable(); await w.write(await h.getFile()); await w.close();
+                        data.interfaces.push({ arquivo: "ui_default.png", x: 0, y: -120, w: 200, h: 120, texts: [{ content: "Texto...", x: 10, y: 10, w: 180, h: 80 }] });
+                        salvarDados(); reloadMap();
+                    };
+                    const bTag = document.createElement('button'); bTag.className='btn-npc b-tag'; bTag.innerText="TAG";
+                    bTag.onclick = () => { data.tag = prompt("Tag:", data.tag); salvarDados(); };
+                    
+                    cnt.append(bUI, bTag); wrap.appendChild(cnt);
+                    wrap.onmousedown = (e) => {
+                        if(e.target.closest('.controles-npc') || e.target.closest('.interface-container')) return;
+                        e.stopPropagation(); let sx=e.clientX, sy=e.clientY, ox=data.x, oy=data.y;
+                        document.onmousemove=(m)=>{ data.x=ox+(m.clientX-sx)/scale; data.y=oy+(m.clientY-sy)/scale; wrap.style.left=data.x+"px"; wrap.style.top=data.y+"px"; };
+                        document.onmouseup=()=>{ document.onmousemove=null; salvarDados(); };
+                    };
+                }
+
+                data.interfaces.forEach((ui, idx) => renderizarInterface(wrap, data, ui, idx));
+                wrap.appendChild(img); div.appendChild(wrap);
             });
         }
 
-        function toggleEditMode() {
-            isEditMode = !isEditMode;
-            const btn = document.getElementById('btnEdit');
-            if(isEditMode) {
-                document.body.classList.replace('edit-mode-off', 'edit-mode-active');
-                btn.innerText = "Modo Edição: ON";
-                btn.style.background = "#0f0";
-                btn.style.color = "#000";
-            } else {
-                document.body.classList.replace('edit-mode-active', 'edit-mode-off');
-                btn.innerText = "Modo Edição: OFF";
-                btn.style.background = "#222";
-                btn.style.color = "#fff";
-            }
-        }
-
-        function changeLayer(v) {
-            currentZ = Math.max(0, Math.min(15, currentZ + v));
-            document.getElementById('layerDisplay').innerText = currentZ;
+        async function vincularImagem(x, y) {
+            const [h] = await window.showOpenFilePicker();
+            const nh = await directoryHandle.getFileHandle(`${x}_${y}_${currentZ}.png`, {create:true});
+            const w = await nh.createWritable(); await w.write(await h.getFile()); await w.close();
             reloadMap();
         }
 
-        function toggleGrid() {
-            isGridVisible = !isGridVisible;
-            world.classList.toggle('grid-hidden', !isGridVisible);
-        }
-
-        function baixarJSON() {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(mapData, null, 2));
-            const dl = document.createElement('a');
-            dl.href = dataStr; dl.download = "map_data.json"; dl.click();
-        }
-
-        // Câmera
-        let drag = false, sx, sy;
-        viewport.onmousedown = (e) => { drag = true; sx = e.clientX - posX; sy = e.clientY - posY; };
-        window.onmousemove = (e) => { if(drag) { posX = e.clientX - sx; posY = e.clientY - sy; update(); atualizarGradeInfinita(); }};
-        window.onmouseup = () => drag = false;
-        viewport.onwheel = (e) => {
-            e.preventDefault();
-            const wx = (e.clientX - posX) / scale;
-            const wy = (e.clientY - posY) / scale;
-            scale *= e.deltaY < 0 ? 1.1 : 0.9;
-            posX = e.clientX - wx * scale;
-            posY = e.clientY - wy * scale;
-            update(); atualizarGradeInfinita();
+        document.getElementById('btnHandle').onclick = async () => {
+            directoryHandle = await window.showDirectoryPicker();
+            try { const fh = await directoryHandle.getFileHandle('map_data.json'); mapData = JSON.parse(await (await fh.getFile()).text()); } catch(e) {}
+            document.getElementById('status').innerText = "Status: Online";
+            this.style.display = "none"; reloadMap();
         };
+
+        function changeLayer(v) { currentZ += v; document.getElementById('layerDisplay').innerText = currentZ; reloadMap(); }
+        function reloadMap() { slotsCriados.clear(); world.innerHTML = ''; atualizarGrade(); update(); }
+        function toggleEditMode() { isEditMode = !isEditMode; reloadMap(); }
         function update() { world.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`; }
+        function atualizarGrade() {
+            if(!directoryHandle) return;
+            const cX = Math.round(((-posX + window.innerWidth/2)/scale)/TILE_W);
+            const cY = Math.round(((-posY + window.innerHeight/2)/scale)/TILE_H);
+            for(let x = cX - 1; x <= cX + 1; x++) for(let y = cY - 1; y <= cY + 1; y++) carregarSlot(x, y);
+        }
+
+        viewport.onmousedown = (e) => { if(e.target === viewport || e.target.className === 'slot') { let sx=e.clientX-posX, sy=e.clientY-posY; document.onmousemove=(m)=>{ posX=m.clientX-sx; posY=m.clientY-sy; update(); atualizarGrade(); }; document.onmouseup=()=>document.onmousemove=null; }};
+        viewport.onwheel = (e) => { e.preventDefault(); const s = e.deltaY < 0 ? 1.1 : 0.9; scale *= s; update(); atualizarGrade(); };
+        update();
     </script>
 </body>
 </html>
