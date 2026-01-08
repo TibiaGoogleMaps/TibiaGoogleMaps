@@ -4,33 +4,35 @@
     <meta charset="UTF-8">
     <title>Tibia Map Editor - Restored</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; color: white; }
-        #viewport { width: 100vw; height: 100vh; cursor: grab; position: relative; }
-        #world { position: absolute; transform-origin: 0 0; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; color: white; user-select: none; }
+        #viewport { width: 100vw; height: 100vh; cursor: grab; position: relative; user-select: none; }
+        #world { position: absolute; transform-origin: 0 0; user-select: none; }
         
-    .slot { position: absolute; width: 1078px; height: 790px; border: 1px solid #1a1a1a; background: #0a0a0a; display: flex; align-items: center; justify-content: center; }
+    .slot { position: absolute; width: 1078px; height: 790px; border: 1px solid #1a1a1a; background: #0a0a0a; display: flex; align-items: center; justify-content: center; user-select: none; }
     .view-mode .slot { border: none; background: transparent; }
 
     .grid-overlay {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
         display: grid; grid-template-columns: repeat(15, 1fr); grid-template-rows: repeat(11, 1fr);
-        pointer-events: none; z-index: 2;
+        pointer-events: none; z-index: 55; user-select: none;
     }
     
     /* Estilos de Cores do Grid */
-    .grid-overlay div { border: 0.5px solid rgba(255, 255, 255, 0.05); } 
+    .grid-overlay div { border: 0.5px solid rgba(255, 255, 255, 0.05); user-select: none; } 
     .grid-green .grid-overlay div { border: 0.5px solid rgba(0, 255, 0, 0.4); }
     .grid-red .grid-overlay div { border: 0.5px solid rgba(255, 0, 0, 0.4); }
     
     .grid-hidden .grid-overlay { display: none; }
 
-    .map-base { width: 100%; height: 100%; position: absolute; z-index: 1; image-rendering: pixelated; pointer-events: none; }
+    .hide-markings .grid-overlay div { background: transparent !important; }
+
+    .map-base { width: 100%; height: 100%; position: absolute; z-index: 1; image-rendering: pixelated; pointer-events: none; user-select: none; }
     
-    .grid-livre { position: absolute; z-index: 50; image-rendering: pixelated; user-select: none; cursor: move; border: 1px solid transparent; }
+    .grid-livre { position: absolute; z-index: 50; image-rendering: pixelated; user-select: none; border: 1px solid transparent; }
     .grid-livre.is-locked { cursor: default; pointer-events: none; }
     
-    .entidade-wrap { position: absolute; z-index: 60; }
-    .entidade-img { width: 100%; height: 100%; display: block; image-rendering: pixelated; cursor: pointer; }
+    .entidade-wrap { position: absolute; z-index: 60; user-select: none; }
+    .entidade-img { width: 100%; height: 100%; display: block; image-rendering: pixelated; cursor: pointer; user-select: none; }
     
     /* FILTROS DE VISIBILIDADE */
     .hide-npc .type-npc, 
@@ -39,27 +41,33 @@
     .hide-balao .type-balao { display: none !important; }
 
     #search-container { position: fixed; top: 15px; right: 15px; width: 250px; z-index: 2000; }
-    #map-search { width: 100%; padding: 10px; background: rgba(0,0,0,0.8); border: 1px solid #444; color: #fff; border-radius: 4px; outline: none; }
-    #search-results { background: rgba(20,20,20,0.95); border: 1px solid #444; border-top: none; max-height: 300px; overflow-y: auto; border-radius: 0 0 4px 4px; }
+    #map-search { width: 100%; padding: 10px; background: rgba(0,0,0,0.8); border: 1px solid #444; color: #fff; border-radius: 4px; outline: none; user-select: text; }
+    #search-results { background: rgba(20,20,20,0.95); border: 1px solid #444; border-top: none; max-height: 300px; overflow-y: auto; border-radius: 0 0 4px 4px; user-select: text; }
     
-    #filter-box { margin-top: 10px; background: rgba(0,0,0,0.8); border: 1px solid #444; padding: 10px; border-radius: 4px; font-size: 12px; }
-    .filter-item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; cursor: pointer; }
-    .filter-item input { cursor: pointer; }
+    #filter-box { margin-top: 10px; background: rgba(0,0,0,0.8); border: 1px solid #444; padding: 10px; border-radius: 4px; font-size: 12px; user-select: none; }
+    .filter-item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; cursor: pointer; user-select: none; }
+    .filter-item input { cursor: pointer; user-select: none; }
 
-    .search-item { padding: 10px; border-bottom: 1px solid #333; cursor: pointer; font-size: 12px; }
+    .search-item { padding: 10px; border-bottom: 1px solid #333; cursor: pointer; font-size: 12px; user-select: text; }
     .search-item:hover { background: #00e1ff; color: #000; }
 
-    .interface-container { position: absolute; z-index: 200; display: none; pointer-events: auto; }
+    .interface-container { position: absolute; z-index: 200; display: none; pointer-events: auto; user-select: none; }
     .interface-container.ativo { display: block; }
-    .interface-img { width: 100%; height: 100%; display: block; image-rendering: pixelated; pointer-events: none; }
+    .interface-img { width: 100%; height: 100%; display: block; image-rendering: pixelated; pointer-events: none; user-select: none; }
 
-    .ui-scroll-area { position: absolute; overflow: visible; background: rgba(255,255,255,0.05); }
-    .ui-texto { color: #fff; font-size: 14px; text-shadow: 1px 1px 0px #000; white-space: pre-wrap; outline: none; width: 100%; min-height: 20px; overflow-y: auto; height: 100%; }
+    .ui-scroll-area { position: absolute; overflow: visible; background: rgba(255,255,255,0.05); user-select: none; }
+    .ui-texto { color: #fff; font-size: 14px; text-shadow: 1px 1px 0px #000; white-space: pre-wrap; outline: none; width: 100%; min-height: 20px; overflow-y: auto; height: 100%; user-select: text; }
 
-    .panel { position: fixed; background: rgba(0,0,0,0.9); padding: 12px; border-radius: 8px; border: 1px solid #333; z-index: 1000; }
+    .panel { position: fixed; background: rgba(0,0,0,0.9); padding: 12px; border-radius: 8px; border: 1px solid #333; z-index: 1000; user-select: none; }
     .left { top: 15px; left: 15px; width: 220px; }
     .right { top: 50%; right: 20px; transform: translateY(-50%); text-align: center; }
-    .btn-ui-main { width: 100%; padding: 8px; margin: 4px 0; cursor: pointer; background: #333; color: #fff; border: 1px solid #444; border-radius: 4px; font-size: 12px; }
+    .btn-ui-main { width: 100%; padding: 8px; margin: 4px 0; cursor: pointer; background: #333; color: #fff; border: 1px solid #444; border-radius: 4px; font-size: 12px; user-select: none; }
+    
+    .slot-label {
+        position: absolute; top: 5px; left: 5px; z-index: 56;
+        color: white; background: rgba(0,0,0,0.5); padding: 2px 5px;
+        border-radius: 3px; font-size: 12px; user-select: none;
+    }
 </style></head>
 <body>
 
@@ -73,11 +81,13 @@
         <label class="filter-item"><input type="checkbox" checked onchange="toggleVisibility('item', this.checked)"> Itens</label>
         <label class="filter-item"><input type="checkbox" checked onchange="toggleVisibility('mob', this.checked)"> Monstros</label>
         <label class="filter-item"><input type="checkbox" checked onchange="toggleVisibility('balao', this.checked)"> Balões</label>
+        <label class="filter-item"><input type="checkbox" checked onchange="toggleVisibility('markings', this.checked)"> Marcações</label>
     </div>
 </div>
 
 <div class="panel left">
     <strong>Tibia Editor Pro</strong>
+    <hr style="border:0; border-top:1px solid #333; margin:10px 0;">
     <button class="btn-ui-main" onclick="toggleGrid()">Grade: ON/OFF</button>
     <button class="btn-ui-main" onclick="toggleGridColor()" id="btnGridColor" style="color: #0f0;">Cor do Grid: Original</button>
     <div id="status" style="font-size:11px; color: #888;">Online</div>
@@ -101,7 +111,7 @@
     let scale = 0.15, posX = window.innerWidth/2, posY = window.innerHeight/2;
     let currentZ = 7, isGridVisible = true, isEditMode = false;
     let gridColorMode = 0; 
-    let mapData = { correcoes: [], entidades: [] };
+    let mapData = { correcoes: [], entidades: [], markings: [] };
     const slotsCriados = new Set();
 
     function toggleGridColor() {
@@ -195,8 +205,9 @@
             if (!res.ok) throw new Error();
             mapData = await res.json();
         } catch(e) {
-            mapData = { correcoes: [], entidades: [] };
+            mapData = { correcoes: [], entidades: [], markings: [] };
         }
+        if (!mapData.markings) mapData.markings = [];
     }
 
     function atualizarGradeInfinita() {
@@ -211,13 +222,26 @@
         slotsCriados.add(id);
         const div = document.createElement('div');
         div.className = 'slot'; div.style.left = `${x * TILE_W}px`; div.style.top = `${y * TILE_H}px`;
+        div.id = id;
         div.innerHTML = `<div class="grid-overlay">${'<div></div>'.repeat(165)}</div><img class="map-base" style="display:none">`;
+        const label = document.createElement('div');
+        label.className = 'slot-label';
+        label.innerText = `${x},${y},${currentZ}`;
+        div.appendChild(label);
         world.appendChild(div);
         const img = div.querySelector('.map-base');
         img.src = basePath + `${id}.png`;
         img.onload = () => { img.style.display = 'block'; };
         img.onerror = () => { img.style.display = 'none'; };
         carregarCorrecoesDoSlot(id, div);
+        const gridOverlay = div.querySelector('.grid-overlay');
+        (mapData.markings || []).filter(m => m.slotId === id && m.z === currentZ).forEach(m => {
+            let col = '';
+            if (m.color === 'blue') col = 'rgba(0,0,255,0.2)';
+            else if (m.color === 'red') col = 'rgba(255,0,0,0.2)';
+            else if (m.color === 'green') col = 'rgba(0,255,0,0.2)';
+            gridOverlay.children[m.cell].style.background = col;
+        });
     }
 
     function reloadMap() { slotsCriados.clear(); world.innerHTML = ''; atualizarGradeInfinita(); update(); }
