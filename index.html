@@ -58,6 +58,9 @@
     .ui-scroll-area { position: absolute; overflow: visible; background: rgba(255,255,255,0.05); user-select: none; }
     .ui-texto { color: #fff; font-size: 14px; text-shadow: 1px 1px 0px #000; white-space: pre-wrap; outline: none; width: 100%; min-height: 20px; overflow-y: auto; height: 100%; user-select: text; }
 
+    .ui-image-area { position: absolute; overflow: visible; user-select: none; }
+    .ui-sub-img { width: 100%; height: 100%; display: block; image-rendering: pixelated; pointer-events: none; user-select: none; }
+
     .panel { position: fixed; background: rgba(0,0,0,0.9); padding: 12px; border-radius: 8px; border: 1px solid #333; z-index: 1000; user-select: none; }
     .left { top: 15px; left: 15px; width: 220px; }
     .right { top: 50%; right: 20px; transform: translateY(-50%); text-align: center; }
@@ -159,7 +162,7 @@
 
         const img = document.createElement('img');
         img.className = 'interface-img';
-        img.src = basePath + uiData.arquivo;
+        img.src = basePath + 'ui/' + uiData.arquivo;
         container.appendChild(img);
 
         if(uiData.texts) {
@@ -171,6 +174,20 @@
                 const txt = document.createElement('div');
                 txt.className = 'ui-texto'; txt.innerHTML = t.content;
                 area.appendChild(txt); container.appendChild(area);
+            });
+        }
+
+        if(uiData.images) {
+            uiData.images.forEach((i) => {
+                const area = document.createElement('div');
+                area.className = 'ui-image-area';
+                area.style.cssText = `left:${i.x}px; top:${i.y}px; width:${i.w}px; height:${i.h}px;`;
+                
+                const subImg = document.createElement('img');
+                subImg.className = 'ui-sub-img';
+                subImg.src = basePath + 'ui/' + i.arquivo;
+                area.appendChild(subImg);
+                container.appendChild(area);
             });
         }
 
@@ -191,7 +208,7 @@
             wrap.className = `entidade-wrap type-${data.tipo || 'npc'}`;
             wrap.style.cssText = `left:${data.x}px; top:${data.y}px; width:${data.w}px; height:${data.h}px;`;
             const img = document.createElement('img');
-            img.src = basePath + data.arquivo; img.className = 'entidade-img';
+            img.src = basePath + 'ui/' + data.arquivo; img.className = 'entidade-img';
             wrap.appendChild(img);
             img.onclick = () => wrap.querySelectorAll('.interface-container').forEach(ui => ui.classList.toggle('ativo'));
             if(data.interfaces) data.interfaces.forEach((ui, idx) => renderizarInterface(wrap, data, ui, idx));
@@ -213,7 +230,38 @@
     function atualizarGradeInfinita() {
         const cX = Math.round(((-posX + window.innerWidth/2)/scale)/TILE_W);
         const cY = Math.round(((-posY + window.innerHeight/2)/scale)/TILE_H);
-        for(let x = cX - 2; x <= cX + 2; x++) for(let y = cY - 2; y <= cY + 2; y++) criarSlot(x, y);
+        const buffer = 2;
+        const halfSlotsX = Math.ceil((window.innerWidth / 2) / (TILE_W * scale)) + buffer;
+        const halfSlotsY = Math.ceil((window.innerHeight / 2) / (TILE_H * scale)) + buffer;
+        const minX = cX - halfSlotsX;
+        const maxX = cX + halfSlotsX;
+        const minY = cY - halfSlotsY;
+        const maxY = cY + halfSlotsY;
+
+        // Identificar slots a carregar
+        const toLoad = [];
+        for(let x = minX; x <= maxX; x++) {
+            for(let y = minY; y <= maxY; y++) {
+                const id = `${x}_${y}_${currentZ}`;
+                if (!slotsCriados.has(id)) {
+                    toLoad.push({x, y});
+                }
+            }
+        }
+
+        // Remover slots fora da visão
+        for (const child of [...world.children]) {
+            const [sx, sy, sz] = child.id.split('_').map(Number);
+            if (sx < minX || sx > maxX || sy < minY || sy > maxY || sz !== currentZ) {
+                world.removeChild(child);
+                slotsCriados.delete(child.id);
+            }
+        }
+
+        // Carregar novos slots
+        for (const {x, y} of toLoad) {
+            criarSlot(x, y);
+        }
     }
 
     function criarSlot(x, y) {
@@ -254,6 +302,13 @@
     window.onmouseup = () => dragM = false;
     viewport.onwheel = (e) => { e.preventDefault(); const wx = (e.clientX - posX) / scale; const wy = (e.clientY - posY) / scale; scale *= e.deltaY < 0 ? 1.1 : 0.9; posX = e.clientX - wx * scale; posY = e.clientY - wy * scale; update(); atualizarGradeInfinita(); };
     function update() { world.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`; }
+
+    // Manipular redimensionamento da janela
+    window.addEventListener('resize', () => {
+        update();
+        atualizarGradeInfinita();
+    });
+
     world.classList.add('view-mode');
     update(); 
     carregarDados().then(reloadMap);
