@@ -11,20 +11,15 @@
     .slot { position: absolute; width: 1078px; height: 790px; border: 1px solid #1a1a1a; background: #0a0a0a; display: flex; align-items: center; justify-content: center; user-select: none; }
     .view-mode .slot { border: none; background: transparent; }
 
-    .grid-overlay {
+    .grid-canvas {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        display: grid; grid-template-columns: repeat(15, 1fr); grid-template-rows: repeat(11, 1fr);
         pointer-events: none; z-index: 55; user-select: none;
     }
     
     /* Estilos de Cores do Grid */
-    .grid-overlay div { border: 0.5px solid rgba(255, 255, 255, 0.05); user-select: none; } 
-    .grid-green .grid-overlay div { border: 0.5px solid rgba(0, 255, 0, 0.4); }
-    .grid-red .grid-overlay div { border: 0.5px solid rgba(255, 0, 0, 0.4); }
-    
-    .grid-hidden .grid-overlay { display: none; }
+    .grid-hidden .grid-canvas { display: none; }
 
-    .hide-markings .grid-overlay div { background: transparent !important; }
+    .hide-markings .grid-canvas { opacity: 0; }
 
     .map-base { width: 100%; height: 100%; position: absolute; z-index: 1; image-rendering: pixelated; pointer-events: none; user-select: none; }
     
@@ -110,6 +105,7 @@
     const world = document.getElementById('world');
     const viewport = document.getElementById('viewport');
     const TILE_W = 1078, TILE_H = 790;
+    const GRID_COLS = 15, GRID_ROWS = 11;
     const basePath = 'mapcontainer/';
     let scale = 0.15, posX = window.innerWidth/2, posY = window.innerHeight/2;
     let currentZ = 7, isGridVisible = true, isEditMode = false;
@@ -128,10 +124,15 @@
         } else if (gridColorMode === 2) {
             world.classList.add('grid-red'); btn.innerText = "Cor do Grid: Vermelho"; btn.style.color = "#f44";
         }
+        // Redesenhar todos os canvases com a nova cor
+        document.querySelectorAll('.grid-canvas').forEach(canvas => drawGrid(canvas));
     }
 
     function toggleVisibility(tipo, isVisible) {
         world.classList.toggle('hide-' + tipo, !isVisible);
+        if (tipo === 'markings') {
+            world.classList.toggle('hide-markings', !isVisible);
+        }
     }
 
     function buscarTags() {
@@ -264,6 +265,60 @@
         }
     }
 
+    function getGridLineColor() {
+        if (gridColorMode === 1) return 'rgba(0, 255, 0, 0.4)';
+        if (gridColorMode === 2) return 'rgba(255, 0, 0, 0.4)';
+        return 'rgba(255, 255, 255, 0.05)';
+    }
+
+    function getMarkingColor(tool) {
+        if (tool === 'blue') return 'rgba(0,0,255,0.2)';
+        if (tool === 'red') return 'rgba(255,0,0,0.2)';
+        if (tool === 'green') return 'rgba(0,255,0,0.2)';
+        return null;
+    }
+
+    function drawGrid(canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const cellW = TILE_W / GRID_COLS;
+        const cellH = TILE_H / GRID_ROWS;
+        const lineColor = getGridLineColor();
+
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = 1;
+
+        for (let i = 0; i <= GRID_COLS; i++) {
+            ctx.beginPath();
+            ctx.moveTo(i * cellW, 0);
+            ctx.lineTo(i * cellW, TILE_H);
+            ctx.stroke();
+        }
+
+        for (let j = 0; j <= GRID_ROWS; j++) {
+            ctx.beginPath();
+            ctx.moveTo(0, j * cellH);
+            ctx.lineTo(TILE_W, j * cellH);
+            ctx.stroke();
+        }
+    }
+
+    function applyMarkings(canvas, markings) {
+        markings.forEach(m => {
+            const ctx = canvas.getContext('2d');
+            const row = Math.floor(m.cell / GRID_COLS);
+            const col = m.cell % GRID_COLS;
+            const cellW = TILE_W / GRID_COLS;
+            const cellH = TILE_H / GRID_ROWS;
+            const color = getMarkingColor(m.color);
+            if (color) {
+                ctx.fillStyle = color;
+                ctx.fillRect(col * cellW, row * cellH, cellW, cellH);
+            }
+        });
+        drawGrid(canvas); // Redesenhar linhas por cima
+    }
+
     function criarSlot(x, y) {
         const id = `${x}_${y}_${currentZ}`;
         if (slotsCriados.has(id)) return;
@@ -271,7 +326,7 @@
         const div = document.createElement('div');
         div.className = 'slot'; div.style.left = `${x * TILE_W}px`; div.style.top = `${y * TILE_H}px`;
         div.id = id;
-        div.innerHTML = `<div class="grid-overlay">${'<div></div>'.repeat(165)}</div><img class="map-base" style="display:none">`;
+        div.innerHTML = `<canvas class="grid-canvas" width="${TILE_W}" height="${TILE_H}"></canvas><img class="map-base" style="display:none">`;
         const label = document.createElement('div');
         label.className = 'slot-label';
         label.innerText = `${x},${y},${currentZ}`;
@@ -282,17 +337,15 @@
         img.onload = () => { img.style.display = 'block'; };
         img.onerror = () => { img.style.display = 'none'; };
         carregarCorrecoesDoSlot(id, div);
-        const gridOverlay = div.querySelector('.grid-overlay');
-        (mapData.markings || []).filter(m => m.slotId === id && m.z === currentZ).forEach(m => {
-            let col = '';
-            if (m.color === 'blue') col = 'rgba(0,0,255,0.2)';
-            else if (m.color === 'red') col = 'rgba(255,0,0,0.2)';
-            else if (m.color === 'green') col = 'rgba(0,255,0,0.2)';
-            gridOverlay.children[m.cell].style.background = col;
-        });
+        const canvas = div.querySelector('.grid-canvas');
+        drawGrid(canvas);
+        const slotMarkings = (mapData.markings || []).filter(m => m.slotId === id && m.z === currentZ);
+        applyMarkings(canvas, slotMarkings);
     }
 
-    function reloadMap() { slotsCriados.clear(); world.innerHTML = ''; atualizarGradeInfinita(); update(); }
+    function reloadMap() { 
+        slotsCriados.clear(); world.innerHTML = ''; atualizarGradeInfinita(); update(); 
+    }
     function toggleGrid() { isGridVisible = !isGridVisible; world.classList.toggle('grid-hidden', !isGridVisible); }
     function changeLayer(v) { currentZ = Math.max(0, Math.min(15, currentZ + v)); document.getElementById('layerDisplay').innerText = currentZ; reloadMap(); }
     
